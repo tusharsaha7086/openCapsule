@@ -105,7 +105,7 @@ class StopwatchSource : ReceiverSource(listOf(ACTION_START), exported = true) {
         title = "Stopwatch",
         text = "Count up from zero",
         icon = context.getDrawable(R.drawable.ic_schedule),
-        actions = listOf(CapsuleAction(null, "Start the stopwatch", label = "Start") { begin() }),
+        actions = listOf(CapsuleAction(context.getDrawable(R.drawable.ic_play_arrow), "Start the stopwatch") { begin() }),
     )
 
     override fun onBroadcast(context: Context, intent: Intent) = begin()
@@ -167,7 +167,7 @@ class StopwatchSource : ReceiverSource(listOf(ACTION_START), exported = true) {
             title = format(elapsed()),
             text = if (phase == Phase.PAUSED) "Paused" else "Stopwatch",
             icon = ctx.getDrawable(R.drawable.ic_schedule),
-            actions = listOf(toggle, CapsuleAction(null, "Reset to zero", label = "Reset") { reset() }),
+            actions = listOf(toggle, CapsuleAction(ctx.getDrawable(R.drawable.ic_restart_alt), "Reset to zero") { reset() }),
             persistent = true,
             ambient = true,
             live = true,

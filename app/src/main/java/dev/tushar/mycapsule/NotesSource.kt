@@ -66,7 +66,7 @@ class NotesSource : CapsuleSource {
             icon = context.getDrawable(R.drawable.ic_edit_note),
             rows = rows,
             actions = listOf(
-                CapsuleAction(null, "Write a new note", label = "New note", dismisses = true) {
+                CapsuleAction(context.getDrawable(R.drawable.ic_add), "Write a new note", dismisses = true) {
                     runCatching { context.startActivity(NoteActivity.intent(context, null)) }
                 },
             ),

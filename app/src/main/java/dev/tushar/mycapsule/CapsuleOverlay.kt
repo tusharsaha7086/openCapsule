@@ -729,6 +729,7 @@ class CapsuleOverlay(
         event.image?.let { content.addView(imagePanel(it)) }
         if (deckOpen && event.tiles.isNotEmpty()) content.addView(tileGrid(event.tiles))
         if (deckOpen && event.rows.isNotEmpty()) content.addView(rowList(event.rows, event.kind))
+        if (deckOpen && event.stats.isNotEmpty()) content.addView(statGrid(event.stats))
         // The playback bar belongs to the deck only; small and long-press-expanded capsules don't have one.
         if (deckOpen) event.playback?.invoke()?.let { content.addView(progressRow(it)) }
         if (buttons.isNotEmpty()) content.addView(buttonRow(buttons))
@@ -843,7 +844,11 @@ class CapsuleOverlay(
         tiles.chunked(TILE_COLUMNS).forEach { rowTiles ->
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
-                rowTiles.forEach { addView(tileView(it), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)) }
+                rowTiles.forEach {
+                    // The gaps are set here: the params given to addView replace any a tile carries itself.
+                    addView(tileView(it), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        .apply { setMargins(dp(TILE_GAP_DP), dp(TILE_GAP_V_DP), dp(TILE_GAP_DP), dp(TILE_GAP_V_DP)) })
+                }
                 // A short last row keeps its tiles the same size as the rows above it.
                 repeat(TILE_COLUMNS - rowTiles.size) { addView(View(context), LinearLayout.LayoutParams(0, 0, 1f)) }
             })
@@ -853,7 +858,7 @@ class CapsuleOverlay(
     private fun tileView(tile: Tile) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
-        setPadding(dp(4), dp(6), dp(4), dp(6))
+        setPadding(dp(4), dp(10), dp(4), dp(10))
         background = GradientDrawable().apply {
             setColor(
                 if (tile.on) (if (onLight) 0x33000000 else 0x44FFFFFF)
@@ -867,15 +872,42 @@ class CapsuleOverlay(
             if (tile.tinted) setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
             alpha = if (tile.on || !tile.tinted) 1f else TILE_OFF_ALPHA
         }, LinearLayout.LayoutParams(dp(if (tile.tinted) TILE_ICON_DP else TILE_APP_ICON_DP), dp(if (tile.tinted) TILE_ICON_DP else TILE_APP_ICON_DP)))
-        addView(line(tile.label, inkDim(if (onLight) INK_DIM else look?.subtitle ?: LIGHT_GRAY), 11f, maxWidthDp = TILE_LABEL_DP)
-            .apply { gravity = Gravity.CENTER })
         isClickable = true
         setOnClickListener {
             if (deckOpen) restartDeckTimer()
             tile.run()
             if (tile.dismisses) collapse() else handler.postDelayed({ if (deckOpen) refreshDeck(Kind.SYSTEM) }, TILE_REFRESH_MS)
         }
-        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP)) }
+    }
+
+    /** A stats card's readings in rows of [STAT_COLUMNS]: a small icon and its value in a chip. */
+    private fun statGrid(stats: List<Stat>) = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(dp(TILE_GRID_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(TILE_GRID_TOP_DP) }
+        stats.chunked(STAT_COLUMNS).forEach { rowStats ->
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                rowStats.forEach { stat ->
+                    addView(LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER
+                        setPadding(dp(6), dp(8), dp(6), dp(8))
+                        background = GradientDrawable().apply {
+                            setColor(if (onLight) 0x14000000 else 0x1FFFFFFF)
+                            cornerRadius = dp(12).toFloat()
+                        }
+                        contentDescription = "${stat.description} ${stat.value}"
+                        addView(ImageView(context).apply {
+                            setImageDrawable(stat.icon)
+                            setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
+                        }, LinearLayout.LayoutParams(dp(STAT_ICON_DP), dp(STAT_ICON_DP)).apply { marginEnd = dp(6) })
+                        addView(line(stat.value, ink(if (onLight) INK else look?.title ?: WHITE), 12f, maxWidthDp = STAT_TEXT_DP))
+                    }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP)) })
+                }
+                // A short last row keeps its chips the same size as the rows above it.
+                repeat(STAT_COLUMNS - rowStats.size) { addView(View(context), LinearLayout.LayoutParams(0, 0, 1f)) }
+            })
+        }
     }
 
     /** A list card's lines, one under the other: a number, then the text on one line. A tap runs the row; a long press its other action. */
@@ -1238,13 +1270,16 @@ class CapsuleOverlay(
         private const val IMAGE_WIDTH_DP = 260
         private const val DOT_DP = 6
         private const val SECTION_GAP_DP = 14
-        private const val TILE_COLUMNS = 3
+        private const val TILE_COLUMNS = 5
+        private const val STAT_COLUMNS = 3
+        private const val STAT_ICON_DP = 18
+        private const val STAT_TEXT_DP = 56
         private const val TILE_GRID_WIDTH_DP = 272
-        private const val TILE_GRID_TOP_DP = 14
-        private const val TILE_GAP_DP = 4
-        private const val TILE_ICON_DP = 22
+        private const val TILE_GRID_TOP_DP = 18
+        private const val TILE_GAP_DP = 5
+        private const val TILE_GAP_V_DP = 8
+        private const val TILE_ICON_DP = 24
         private const val TILE_APP_ICON_DP = 32
-        private const val TILE_LABEL_DP = 80
         private const val TILE_OFF_ALPHA = 0.6f
         private const val TILE_REFRESH_MS = 350L
         private const val ROW_HEIGHT_DP = 34

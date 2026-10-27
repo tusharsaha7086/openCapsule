@@ -28,7 +28,6 @@ private fun size(bytes: Long): String {
     return if (gb >= 1) String.format(Locale.US, "%.1f GB", gb) else String.format(Locale.US, "%d MB", (bytes / (BYTES_PER_KB * BYTES_PER_KB)).toLong())
 }
 
-private fun statRow(label: String, value: String) = Row(text = "$label   $value", dismisses = false) {}
 
 /** The battery: its level as the card's bar, with the state, how long until it is full or empty, and its temperature and health. */
 class BatterySource : CapsuleSource {
@@ -53,11 +52,11 @@ class BatterySource : CapsuleSource {
             BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over voltage"
             else -> "Unknown"
         }
-        val rows = buildList {
-            add(statRow("Temperature", String.format(Locale.US, "%.1f °C", temperature)))
-            add(statRow("Health", health))
-            add(statRow("Voltage", String.format(Locale.US, "%.2f V", sticky.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / MILLI)))
-            remaining(context, charging)?.let { add(statRow(if (charging) "Full in" else "Left", it)) }
+        val stats = buildList {
+            add(Stat(context.getDrawable(R.drawable.ic_thermostat), String.format(Locale.US, "%.1f °C", temperature), "Temperature"))
+            add(Stat(context.getDrawable(R.drawable.ic_favorite), health, "Health"))
+            add(Stat(context.getDrawable(R.drawable.ic_bolt), String.format(Locale.US, "%.2f V", sticky.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) / MILLI), "Voltage"))
+            remaining(context, charging)?.let { add(Stat(context.getDrawable(R.drawable.ic_schedule), it, "Time until full")) }
         }
         return CapsuleEvent(
             kind = Kind.BATTERY,
@@ -69,7 +68,7 @@ class BatterySource : CapsuleSource {
             },
             icon = context.getDrawable(if (charging) R.drawable.ic_battery_charging_full else R.drawable.ic_battery_full),
             progress = percent / PERCENT.toFloat(),
-            rows = rows,
+            stats = stats,
             refreshMs = REFRESH_MS,
         )
     }
@@ -112,12 +111,12 @@ class StatsSource : CapsuleSource {
         val data = StatFs(Environment.getDataDirectory().path)
         val storageUsed = data.totalBytes - data.availableBytes
 
-        val rows = listOf(
-            statRow("Memory", "${size(used)} of ${size(memory.totalMem)}  ·  ${(memoryShare * PERCENT).toInt()}%"),
-            statRow("Storage", "${size(storageUsed)} of ${size(data.totalBytes)}  ·  ${(storageUsed * PERCENT / data.totalBytes.coerceAtLeast(1))}%"),
-            statRow("Network", speed()),
-            statRow("Processor", processor()),
-            statRow("Heat", heat(context)),
+        val stats = listOf(
+            Stat(context.getDrawable(R.drawable.ic_memory), "${(memoryShare * PERCENT).toInt()}%", "Memory, ${size(used)} of ${size(memory.totalMem)}"),
+            Stat(context.getDrawable(R.drawable.ic_storage), "${storageUsed * PERCENT / data.totalBytes.coerceAtLeast(1)}%", "Storage, ${size(storageUsed)} of ${size(data.totalBytes)}"),
+            Stat(context.getDrawable(R.drawable.ic_swap_vert), speed(), "Network speed"),
+            Stat(context.getDrawable(R.drawable.ic_speed), processor(), "Processor"),
+            Stat(context.getDrawable(R.drawable.ic_thermostat), heat(context), "Heat"),
         )
         return CapsuleEvent(
             kind = Kind.STATS,
@@ -125,7 +124,7 @@ class StatsSource : CapsuleSource {
             text = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}",
             icon = context.getDrawable(R.drawable.ic_memory),
             progress = memoryShare,
-            rows = rows,
+            stats = stats,
             refreshMs = REFRESH_MS,
         )
     }
@@ -152,7 +151,7 @@ class StatsSource : CapsuleSource {
         val khz = (0 until cores).mapNotNull { core ->
             runCatching { File("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq").readText().trim().toLong() }.getOrNull()
         }.maxOrNull()
-        return if (khz != null) String.format(Locale.US, "%d cores  ·  %.1f GHz", cores, khz / KHZ_PER_GHZ) else "$cores cores"
+        return if (khz != null) String.format(Locale.US, "%.1f GHz", khz / KHZ_PER_GHZ) else "$cores cores"
     }
 
     /** The phone's own verdict on its heat (Android 10 and later), with the battery's temperature as a fallback. */

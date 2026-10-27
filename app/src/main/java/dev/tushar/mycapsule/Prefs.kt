@@ -320,6 +320,11 @@ class Prefs(context: Context) {
         get() = sp.getString(LAUNCHER_APPS, null).orEmpty().split(',').filter { it.isNotBlank() }
         set(v) = sp.edit().putString(LAUNCHER_APPS, v.joinToString(",")).apply()
 
+    /** Whether the quick launcher has been given its starting apps (see [LauncherDefaults]); done once, so removing them sticks. */
+    var launcherSeeded: Boolean
+        get() = sp.getBoolean(LAUNCHER_SEEDED, false)
+        set(v) = sp.edit().putBoolean(LAUNCHER_SEEDED, v).apply()
+
     /** Whether copied text is remembered for the clipboard card. On unless switched off; nothing is kept while it is off. */
     var clipboardRecording: Boolean
         get() = sp.getBoolean(CLIPBOARD_RECORDING, true)
@@ -414,6 +419,7 @@ class Prefs(context: Context) {
         private const val CARD_ORDER = "card_order"
         private const val CLIPBOARD_RECORDING = "clipboard_recording"
         private const val LAUNCHER_APPS = "launcher_apps"
+        private const val LAUNCHER_SEEDED = "launcher_seeded"
         const val MAX_LAUNCHER_APPS = 9
         private const val LOW_BATTERY = "low_battery_percent"
         private const val SHAPE = "shape"

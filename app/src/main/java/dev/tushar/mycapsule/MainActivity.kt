@@ -772,6 +772,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Which apps the quick launcher card shows: a switch per app, in the order they are switched on, up to a limit. */
     private fun LinearLayout.launcherAppsPage() {
+        LauncherDefaults.seed(this@MainActivity, prefs)
         section("Apps") {
             val list = this
             val rows = mutableListOf<Pair<String, View>>()

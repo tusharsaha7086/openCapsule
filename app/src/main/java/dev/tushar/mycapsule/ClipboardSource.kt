@@ -100,14 +100,14 @@ class ClipboardSource : CapsuleSource {
         }
         val actions = if (!serviceOn) {
             listOf(
-                CapsuleAction(null, "Open accessibility settings", label = "Turn on", dismisses = true) {
+                CapsuleAction(context.getDrawable(R.drawable.ic_settings), "Open accessibility settings", dismisses = true) {
                     runCatching {
                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
                 },
             )
         } else if (rows.isNotEmpty()) {
-            listOf(CapsuleAction(null, "Clear the clipboard history", label = "Clear all", dismisses = true) { ClipboardHistory.clear(context) })
+            listOf(CapsuleAction(context.getDrawable(R.drawable.ic_delete), "Clear the clipboard history", dismisses = true) { ClipboardHistory.clear(context) })
         } else {
             emptyList()
         }

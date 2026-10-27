@@ -53,7 +53,7 @@ class Playback(
 )
 
 /**
- * A switch on the quick settings card: an icon over a name, lit while [on]. [run] does the change, or opens the page that
+ * A switch on a tile card: an icon, lit while [on], with [label] as its spoken name (the tile shows no text). [run] does the change, or opens the page that
  * does, and [dismisses] closes the deck afterwards (for a tile that leaves for another screen).
  */
 class Tile(
@@ -77,6 +77,9 @@ class Row(
     val onLongPress: (() -> Unit)? = null,
     val run: () -> Unit,
 )
+
+/** One reading on a stats card: an icon and a short [value]. [description] says what it is, for a screen reader. */
+class Stat(val icon: Drawable?, val value: String, val description: String)
 
 /** The single model every [CapsuleSource] emits and [CapsuleOverlay] renders. */
 data class CapsuleEvent(
@@ -119,6 +122,8 @@ data class CapsuleEvent(
     val tiles: List<Tile> = emptyList(),
     /** Lines drawn as a list under the header, in the deck only. */
     val rows: List<Row> = emptyList(),
+    /** Readings drawn as icon-and-value chips under the header, in the deck only. */
+    val stats: List<Stat> = emptyList(),
     /** A card that changes by itself (the battery, the phone's load, a focus session) asks to be redrawn this often while the deck is open. */
     val refreshMs: Long? = null,
 )

@@ -45,7 +45,7 @@ class CalendarSource : CapsuleSource {
                 text = "Allow calendar access to see your next event",
                 icon = icon,
                 actions = listOf(
-                    CapsuleAction(null, "Allow calendar access", label = "Allow", dismisses = true) {
+                    CapsuleAction(context.getDrawable(R.drawable.ic_lock_open), "Allow calendar access", dismisses = true) {
                         runCatching { context.startActivity(CalendarAccess.intent(context)) }
                     },
                 ),
@@ -72,7 +72,7 @@ class CalendarSource : CapsuleSource {
             onTap = pending(context, first),
             rows = rows,
             actions = first.link?.let { link ->
-                listOf(CapsuleAction(null, "Join the meeting", label = "Join", dismisses = true) { openLink(context, link) })
+                listOf(CapsuleAction(context.getDrawable(R.drawable.ic_videocam), "Join the meeting", dismisses = true) { openLink(context, link) })
             }.orEmpty(),
             // The countdown moves; the events are cached, so redrawing does not ask the calendar again.
             refreshMs = REFRESH_MS,

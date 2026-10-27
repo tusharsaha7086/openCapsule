@@ -48,7 +48,7 @@ class PomodoroSource : CapsuleSource {
     override fun card(context: Context): CapsuleEvent {
         val left = if (!active) Phase.FOCUS.minutes * MS_PER_MINUTE else if (running) (endAt - now()).coerceAtLeast(0) else remainingMs
         val actions = when {
-            !active -> listOf(CapsuleAction(null, "Start a focus session", label = "Start") { begin() })
+            !active -> listOf(CapsuleAction(context.getDrawable(R.drawable.ic_play_arrow), "Start a focus session") { begin() })
             else -> listOf(
                 if (running) {
                     CapsuleAction(context.getDrawable(R.drawable.ic_pause), "Pause") { pause() }
@@ -56,7 +56,7 @@ class PomodoroSource : CapsuleSource {
                     CapsuleAction(context.getDrawable(R.drawable.ic_play_arrow), "Resume") { resume() }
                 },
                 CapsuleAction(context.getDrawable(R.drawable.ic_skip_next), "Skip to the next part") { advance(announce = false) },
-                CapsuleAction(null, "Stop the session", label = "Reset") { reset() },
+                CapsuleAction(context.getDrawable(R.drawable.ic_restart_alt), "Stop the session") { reset() },
             )
         }
         return CapsuleEvent(
