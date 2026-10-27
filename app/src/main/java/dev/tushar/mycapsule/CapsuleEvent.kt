@@ -16,6 +16,13 @@ enum class Kind(val label: String, val defaultMs: Long, val priority: Int, val d
     TIMER("Timer", 0, 1),
     STOPWATCH("Stopwatch", 0, 1),
     BARCODE("Barcode", 30_000, 2),
+    CLIPBOARD("Clipboard", 0, 1, defaultOn = false),
+    NOTES("Notes", 0, 1, defaultOn = false),
+    BATTERY("Battery", 0, 1, defaultOn = false),
+    STATS("Phone stats", 0, 1, defaultOn = false),
+    CALENDAR("Calendar", 0, 1, defaultOn = false),
+    LAUNCHER("Quick launcher", 0, 1, defaultOn = false),
+    POMODORO("Pomodoro", 5_000, 1),
     PROGRESS("Downloads and progress", 5_000, 1),
     NAVIGATION("Navigation", 5_000, 2),
     CALL("Calls", 8_000, 3),
@@ -43,6 +50,32 @@ class Playback(
     val durationMs: Long,
     val playing: Boolean,
     val seekTo: ((Long) -> Unit)?,
+)
+
+/**
+ * A switch on the quick settings card: an icon over a name, lit while [on]. [run] does the change, or opens the page that
+ * does, and [dismisses] closes the deck afterwards (for a tile that leaves for another screen).
+ */
+class Tile(
+    val icon: Drawable?,
+    val label: String,
+    val on: Boolean,
+    val dismisses: Boolean = false,
+    /** False for a picture that keeps its own colours (an app's icon); a plain glyph takes the capsule's text colour. */
+    val tinted: Boolean = true,
+    val run: () -> Unit,
+)
+
+/**
+ * One line of a list card (copied items, notes). [number] is drawn before the text. [run] happens on a tap, and
+ * [dismisses] closes the deck afterwards; a row that stays redraws the card instead. [onLongPress] is optional.
+ */
+class Row(
+    val text: String,
+    val number: Int? = null,
+    val dismisses: Boolean = true,
+    val onLongPress: (() -> Unit)? = null,
+    val run: () -> Unit,
 )
 
 /** The single model every [CapsuleSource] emits and [CapsuleOverlay] renders. */
@@ -80,4 +113,12 @@ data class CapsuleEvent(
      * is in use. Only cards say so. While one is live, the chosen gesture on the pill opens it.
      */
     val live: Boolean = false,
+    /** A deck card that holds several cards one above the other (the timer and the stopwatch); it draws these, not itself. */
+    val sections: List<CapsuleEvent> = emptyList(),
+    /** Switches drawn as a grid under the header, in the deck only. */
+    val tiles: List<Tile> = emptyList(),
+    /** Lines drawn as a list under the header, in the deck only. */
+    val rows: List<Row> = emptyList(),
+    /** A card that changes by itself (the battery, the phone's load, a focus session) asks to be redrawn this often while the deck is open. */
+    val refreshMs: Long? = null,
 )

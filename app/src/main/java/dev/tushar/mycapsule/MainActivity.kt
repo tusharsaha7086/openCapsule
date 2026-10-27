@@ -113,6 +113,23 @@ class MainActivity : AppCompatActivity() {
         if (granted) TestMessage.post(this) else Toast.makeText(this, "The test message needs permission to post a notification", Toast.LENGTH_LONG).show()
     }
 
+    /** Asks for permission to read the calendar, for the Calendar card. The card reads it afresh, so nothing more is needed here. */
+    private val calendarPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        Toast.makeText(this, if (granted) "Calendar allowed" else "The Calendar card needs access to your calendar", Toast.LENGTH_SHORT).show()
+    }
+
+    /** The Calendar card sent us here to ask; the request is shown once and the flag is cleared so it is not asked again on rotation. */
+    private fun askCalendarIfRequested(intent: Intent?) {
+        if (intent?.getBooleanExtra(CalendarAccess.EXTRA_ASK, false) != true) return
+        intent.removeExtra(CalendarAccess.EXTRA_ASK)
+        if (!CalendarAccess.granted(this)) calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        askCalendarIfRequested(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val systemSplash = installSplashScreen()
         // The chosen font and light or dark, before anything is drawn. Changing the theme later recreates the screen.
@@ -129,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         }
         prefs = Prefs(this)
         overlay = CapsuleOverlay(applicationContext, prefs)
+        askCalendarIfRequested(intent)
         onBackPressedDispatcher.addCallback(this, backCallback)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         skin = Skins.of(prefs.uiStyle, this, density)
@@ -411,7 +429,7 @@ class MainActivity : AppCompatActivity() {
                 isOn = { getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName) },
                 open = { Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
                 badLabel = "May be stopped in the background"))
-            addRow(statusRow(R.drawable.ic_accessibility_new, "Draw above the status bar", "Optional. Uses an accessibility service that reads nothing", optional = true,
+            addRow(statusRow(R.drawable.ic_accessibility_new, "Draw above the status bar", "Optional. Also lets the Clipboard card record copies and paste into a field", optional = true,
                 isOn = { OverlayHost.isAboveStatusBar },
                 open = { Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS) }))
         }
@@ -456,6 +474,13 @@ class MainActivity : AppCompatActivity() {
         Kind.TIMER -> R.drawable.ic_timer
         Kind.STOPWATCH -> R.drawable.ic_schedule
         Kind.BARCODE -> R.drawable.ic_qr_code_2
+        Kind.CLIPBOARD -> R.drawable.ic_content_paste
+        Kind.NOTES -> R.drawable.ic_edit_note
+        Kind.BATTERY -> R.drawable.ic_battery_full
+        Kind.STATS -> R.drawable.ic_memory
+        Kind.CALENDAR -> R.drawable.ic_event
+        Kind.LAUNCHER -> R.drawable.ic_apps
+        Kind.POMODORO -> R.drawable.ic_timer
         Kind.PROGRESS -> R.drawable.ic_download
         Kind.NAVIGATION -> R.drawable.ic_navigation
         Kind.CALL -> R.drawable.ic_call
@@ -470,6 +495,13 @@ class MainActivity : AppCompatActivity() {
         Kind.TIMER -> "A running countdown"
         Kind.STOPWATCH -> "A running stopwatch"
         Kind.BARCODE -> "Your saved pass or code"
+        Kind.CLIPBOARD -> "What you copied lately"
+        Kind.NOTES -> "Quick notes"
+        Kind.BATTERY -> "Battery level and state"
+        Kind.STATS -> "Memory, storage and more"
+        Kind.CALENDAR -> "Your next event"
+        Kind.LAUNCHER -> "Your chosen apps"
+        Kind.POMODORO -> "When a focus part ends and a break starts"
         Kind.PROGRESS -> "Downloads and other progress"
         Kind.NAVIGATION -> "Directions while you travel"
         Kind.CALL -> "An ongoing call"
@@ -674,11 +706,116 @@ class MainActivity : AppCompatActivity() {
                 addRow(switchRow(card.icon, card.label, card.hint, prefs.cardEnabled(card), after = {}) { prefs.setCardEnabled(card, it) })
             }
         }
+        section("Order") {
+            val list = this
+            fun render() {
+                list.removeAllViews()
+                val order = prefs.cardOrder
+                order.forEachIndexed { i, card ->
+                    fun move(by: Int) {
+                        prefs.cardOrder = order.toMutableList().apply { add(i + by, removeAt(i)) }
+                        render()
+                    }
+                    val arrows = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        if (i > 0) addView(orderArrow("▲", "Move ${card.label} up") { move(-1) })
+                        if (i < order.lastIndex) addView(orderArrow("▼", "Move ${card.label} down") { move(1) })
+                    }
+                    list.addRow(headRow(card.icon, card.label, "Position ${i + 1} in the deck", arrows).root)
+                }
+            }
+            render()
+        }
+        section("Clipboard") {
+            addRow(switchRow(R.drawable.ic_content_paste, "Remember what I copy",
+                "Needs the accessibility service. Keeps the last 30 copies on this phone only. Anything an app marks as sensitive, like a password, is skipped.",
+                prefs.clipboardRecording, after = {}) { prefs.clipboardRecording = it })
+            addRow(actionRow(R.drawable.ic_close, "Clear clipboard history", "Forget everything copied so far") {
+                ClipboardHistory.clear(this@MainActivity)
+                Toast.makeText(this@MainActivity, "Clipboard history cleared", Toast.LENGTH_SHORT).show()
+            })
+        }
+        section("Calendar and launcher") {
+            addRow(actionRow(R.drawable.ic_event, "Calendar access", "The Calendar card reads your events to show the next one. Nothing is changed or sent.") {
+                if (CalendarAccess.granted(this@MainActivity)) {
+                    Toast.makeText(this@MainActivity, "Calendar is already allowed", Toast.LENGTH_SHORT).show()
+                } else {
+                    calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
+                }
+            })
+            addRow(actionRow(R.drawable.ic_apps, "Quick launcher apps", "Choose up to ${Prefs.MAX_LAUNCHER_APPS} apps for the launcher card") {
+                openSub("Quick launcher apps") { launcherAppsPage() }
+            })
+        }
         section("Opening a card") {
             addRow(controlRow(R.drawable.ic_touch_app, "Open a live card with",
                 "While music plays, a timer or stopwatch runs, the torch is on or the volume is in use, this gesture on the pill opens that card. The other gestures keep their own action.",
                 chips(DYNAMIC_CARD_GESTURES, prefs.dynamicCardGesture, Gesture::label) { prefs.dynamicCardGesture = it }))
             addRow(headRow(R.drawable.ic_info, "Other gestures", "Single tap, double tap, long press and the swipes are set under Customize, Gestures.").root)
+        }
+    }
+
+    /** A small arrow that moves a card one place in the deck order. */
+    private fun orderArrow(symbol: String, description: String, onClick: () -> Unit) =
+        text(symbol, 16f, skin.textDim, bold = true).apply {
+            gravity = Gravity.CENTER
+            contentDescription = description
+            isClickable = true
+            isFocusable = true
+            minWidth = dp(44)
+            minHeight = dp(44)
+            setOnClickListener {
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                onClick()
+            }
+        }
+
+    /** Which apps the quick launcher card shows: a switch per app, in the order they are switched on, up to a limit. */
+    private fun LinearLayout.launcherAppsPage() {
+        section("Apps") {
+            val list = this
+            val rows = mutableListOf<Pair<String, View>>()
+
+            val search = field("Search apps", "")
+            search.doOnTextChanged { text, _, _, _ ->
+                val query = text?.toString().orEmpty().trim().lowercase()
+                rows.forEach { (name, row) -> row.visibility = if (query.isEmpty() || query in name) View.VISIBLE else View.GONE }
+            }
+            list.addView(search)
+
+            val loading = text("Loading apps...", 13f, skin.textDim, role = TextRole.CAPTION).apply { setPadding(0, dp(16), 0, 0) }
+            list.addView(loading)
+            loadApps { apps ->
+                list.removeView(loading)
+                apps.forEach { app ->
+                    lateinit var toggle: SkinSwitch
+                    toggle = SkinSwitch(this@MainActivity, skin, app.pkg in prefs.launcherApps) { on ->
+                        val chosen = prefs.launcherApps
+                        when {
+                            !on -> prefs.launcherApps = chosen - app.pkg
+                            app.pkg in chosen -> Unit
+                            chosen.size >= Prefs.MAX_LAUNCHER_APPS -> {
+                                Toast.makeText(this@MainActivity, "Up to ${Prefs.MAX_LAUNCHER_APPS} apps", Toast.LENGTH_SHORT).show()
+                                toggle.setChecked(false)
+                            }
+                            else -> prefs.launcherApps = chosen + app.pkg
+                        }
+                    }.apply { contentDescription = app.label }
+                    val row = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        clipChildren = false
+                        addView(ImageView(context).apply { setImageDrawable(app.icon) },
+                            LinearLayout.LayoutParams(dp(TILE_DP), dp(TILE_DP)).apply { marginEnd = dp(14) })
+                        addView(text(app.label, 15f, skin.text, bold = true, role = TextRole.LABEL),
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                        addView(toggle)
+                    }
+                    rows += app.label.lowercase() to row
+                    list.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        .apply { topMargin = dp(APP_ROW_GAP_DP) })
+                }
+            }
         }
     }
 

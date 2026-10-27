@@ -39,7 +39,18 @@ class TimerSource : ReceiverSource(listOf(ACTION_START), exported = true) {
         phase = Phase.IDLE
     }
 
-    override fun card(context: Context): CapsuleEvent? = if (phase == Phase.IDLE) null else event()
+    /** The running timer, or while none runs a section that starts one: the clock card always shows the timer. */
+    override fun card(context: Context): CapsuleEvent = if (phase == Phase.IDLE) idleCard(context) else event()
+
+    private fun idleCard(context: Context) = CapsuleEvent(
+        kind = Kind.TIMER,
+        title = "Timer",
+        text = "Start a countdown",
+        icon = context.getDrawable(R.drawable.ic_timer),
+        actions = QUICK_MINUTES.map { minutes ->
+            CapsuleAction(null, "Start a $minutes minute timer", label = "$minutes min") { begin(minutes * MS_PER_MINUTE) }
+        },
+    )
 
     override fun onBroadcast(context: Context, intent: Intent) {
         val seconds = intent.getIntExtra(EXTRA_SECONDS, 0)
@@ -149,6 +160,9 @@ class TimerSource : ReceiverSource(listOf(ACTION_START), exported = true) {
     companion object {
         const val ACTION_START = "dev.tushar.mycapsule.START_TIMER"
         const val EXTRA_SECONDS = "seconds"
+
+        /** The lengths offered on the clock card while no timer runs. */
+        private val QUICK_MINUTES = listOf(1, 5, 10)
 
         private const val MS_PER_SECOND = 1_000L
         private const val MS_PER_MINUTE = 60_000L

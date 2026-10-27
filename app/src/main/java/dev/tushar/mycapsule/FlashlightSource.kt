@@ -6,7 +6,7 @@ import android.os.Handler
 import android.os.Looper
 
 /**
- * Emits a capsule when the torch turns on or off, offers a flashlight card in the expanded capsule,
+ * Emits a capsule when the torch turns on or off, reports its state to the quick settings card,
  * and runs the toggle gesture. Needs no camera permission: torch callbacks and
  * [CameraManager.setTorchMode] are permission-free.
  */
@@ -40,21 +40,18 @@ class FlashlightSource : CapsuleSource {
         lastState.clear()
     }
 
-    override fun card(context: Context): CapsuleEvent? {
-        val (id, enabled) = lastState.entries.firstOrNull() ?: return null
-        return event(context, id, enabled, forCard = true)
-    }
+    /** Whether the torch is on, or null while the phone has not reported (or has no torch). The quick settings card shows it. */
+    fun isOn(): Boolean? = lastState.values.firstOrNull()
 
     fun toggle() {
         val (id, enabled) = lastState.entries.firstOrNull() ?: return
         runCatching { manager?.setTorchMode(id, !enabled) }
     }
 
-    private fun event(context: Context, cameraId: String, enabled: Boolean, forCard: Boolean = false): CapsuleEvent {
+    private fun event(context: Context, cameraId: String, enabled: Boolean): CapsuleEvent {
         val switch = CapsuleAction(
             icon = context.getDrawable(R.drawable.ic_flashlight_off),
             description = if (enabled) "Turn off" else "Turn on",
-            label = if (forCard) (if (enabled) "Turn off" else "Turn on") else null,
         ) { runCatching { manager?.setTorchMode(cameraId, !enabled) } }
 
         return CapsuleEvent(
@@ -62,11 +59,10 @@ class FlashlightSource : CapsuleSource {
             title = if (enabled) "Flashlight on" else "Flashlight off",
             text = null,
             icon = context.getDrawable(R.drawable.ic_flashlight_on),
-            // The brief on/off capsule only offers a button while the torch is on; the card always does.
-            actions = if (enabled || forCard) listOf(switch) else emptyList(),
-            live = enabled,
+            // The brief on/off capsule only offers a button while the torch is on.
+            actions = if (enabled) listOf(switch) else emptyList(),
             // While the torch is on its banner stays, with the Turn off button, until it is swiped up.
-            persistent = enabled && !forCard && Prefs(context).bannersSticky,
+            persistent = enabled && Prefs(context).bannersSticky,
         )
     }
 }

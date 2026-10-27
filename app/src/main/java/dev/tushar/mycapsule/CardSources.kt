@@ -97,7 +97,16 @@ class StopwatchSource : ReceiverSource(listOf(ACTION_START), exported = true) {
         phase = Phase.IDLE
     }
 
-    override fun card(context: Context): CapsuleEvent? = if (phase == Phase.IDLE) null else event()
+    /** The running stopwatch, or while none runs a section that starts one: the clock card always shows the stopwatch. */
+    override fun card(context: Context): CapsuleEvent = if (phase == Phase.IDLE) idleCard(context) else event()
+
+    private fun idleCard(context: Context) = CapsuleEvent(
+        kind = Kind.STOPWATCH,
+        title = "Stopwatch",
+        text = "Count up from zero",
+        icon = context.getDrawable(R.drawable.ic_schedule),
+        actions = listOf(CapsuleAction(null, "Start the stopwatch", label = "Start") { begin() }),
+    )
 
     override fun onBroadcast(context: Context, intent: Intent) = begin()
 

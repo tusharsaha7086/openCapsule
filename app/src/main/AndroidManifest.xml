@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Android only announces the hotspot turning on or off to apps that hold this one (a normal permission, granted on install). -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Only for the Calendar card, which shows the next event. Asked for when you allow it; the calendar is never changed. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- Only to post the test message on the Notification look screen. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -48,6 +50,13 @@
 
         <activity
             android:name=".ReplyActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.OpenCapsule.Reply"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+
+        <activity
+            android:name=".NoteActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@style/Theme.OpenCapsule.Reply"

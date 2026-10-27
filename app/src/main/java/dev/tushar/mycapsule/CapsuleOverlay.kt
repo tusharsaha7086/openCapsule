@@ -404,7 +404,7 @@ class CapsuleOverlay(
     private fun openDeck(startAt: Kind? = null) {
         haptic()
         deck = deckProvider().ifEmpty { listOf(placeholder()) }
-        deckIndex = deck.indexOfFirst { it.kind == startAt }.coerceAtLeast(0)
+        deckIndex = deck.indexOfFirst { slot(it.kind) == slot(startAt) }.coerceAtLeast(0)
         val previous = bodySize()
         resetState()
         deckOpen = true
@@ -432,6 +432,18 @@ class CapsuleOverlay(
         val card = deck[deckIndex]
         expanded = card.expandedActions.isNotEmpty()
         render(card, anim, previous)
+        scheduleDeckTick()
+    }
+
+    /** Redraws the shown card when it changes by itself (see [CapsuleEvent.refreshMs]). Redrawing schedules the next one. */
+    private val deckTick = Runnable {
+        if (deckOpen) current?.let { refreshDeck(it.kind) }
+    }
+
+    private fun scheduleDeckTick() {
+        handler.removeCallbacks(deckTick)
+        val ms = deck.getOrNull(deckIndex)?.refreshMs ?: return
+        if (deckOpen) handler.postDelayed(deckTick, ms)
     }
 
     private fun switchCard(delta: Int) {
@@ -446,10 +458,13 @@ class CapsuleOverlay(
     private fun refreshDeck(changed: Kind) {
         val shownKind = current?.kind
         deck = deckProvider().ifEmpty { listOf(placeholder()) }
-        deckIndex = deck.indexOfFirst { it.kind == shownKind }.takeIf { it >= 0 } ?: deckIndex.coerceAtMost(deck.lastIndex)
+        deckIndex = deck.indexOfFirst { slot(it.kind) == slot(shownKind) }.takeIf { it >= 0 } ?: deckIndex.coerceAtMost(deck.lastIndex)
         measureDeck()
-        if (shownKind == changed || shownKind == null) renderDeck(Anim.UPDATE)
+        if (slot(shownKind) == slot(changed) || shownKind == null) renderDeck(Anim.UPDATE)
     }
+
+    /** The deck card a kind of event shows on. Kinds that share a card (timer and stopwatch, torch and phone events) answer alike. */
+    private fun slot(kind: Kind?): Any? = kind?.let { DeckCard.of(it) ?: it }
 
     private fun placeholder() = CapsuleEvent(
         kind = Kind.MESSAGE,
@@ -699,13 +714,21 @@ class CapsuleOverlay(
             root
         }
         // In the deck the header keeps its own width so it stays centred, like the buttons and image below it.
-        val header = header(event)
-        if (deckOpen) {
-            content.addView(header, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        if (deckOpen && event.sections.isNotEmpty()) {
+            // A card that holds several (timer over stopwatch): each keeps its own header and buttons.
+            event.sections.forEachIndexed { i, section ->
+                content.addView(header(section), LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    .apply { if (i > 0) topMargin = dp(SECTION_GAP_DP) })
+                if (section.actions.isNotEmpty()) content.addView(buttonRow(section.actions))
+            }
+        } else if (deckOpen) {
+            content.addView(header(event), LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         } else {
-            content.addView(header)
+            content.addView(header(event))
         }
         event.image?.let { content.addView(imagePanel(it)) }
+        if (deckOpen && event.tiles.isNotEmpty()) content.addView(tileGrid(event.tiles))
+        if (deckOpen && event.rows.isNotEmpty()) content.addView(rowList(event.rows, event.kind))
         // The playback bar belongs to the deck only; small and long-press-expanded capsules don't have one.
         if (deckOpen) event.playback?.invoke()?.let { content.addView(progressRow(it)) }
         if (buttons.isNotEmpty()) content.addView(buttonRow(buttons))
@@ -812,6 +835,87 @@ class CapsuleOverlay(
         layoutParams = LinearLayout.LayoutParams(dp(IMAGE_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = dp(10) }
     }, 12)
+
+    /** The quick settings tiles in rows of [TILE_COLUMNS]: an icon over a name, brighter while the setting is on. */
+    private fun tileGrid(tiles: List<Tile>) = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(dp(TILE_GRID_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(TILE_GRID_TOP_DP) }
+        tiles.chunked(TILE_COLUMNS).forEach { rowTiles ->
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                rowTiles.forEach { addView(tileView(it), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)) }
+                // A short last row keeps its tiles the same size as the rows above it.
+                repeat(TILE_COLUMNS - rowTiles.size) { addView(View(context), LinearLayout.LayoutParams(0, 0, 1f)) }
+            })
+        }
+    }
+
+    private fun tileView(tile: Tile) = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(dp(4), dp(6), dp(4), dp(6))
+        background = GradientDrawable().apply {
+            setColor(
+                if (tile.on) (if (onLight) 0x33000000 else 0x44FFFFFF)
+                else (if (onLight) 0x0F000000 else 0x14FFFFFF),
+            )
+            cornerRadius = dp(14).toFloat()
+        }
+        contentDescription = "${tile.label}, ${if (tile.on) "on" else "off"}"
+        addView(ImageView(context).apply {
+            setImageDrawable(tile.icon)
+            if (tile.tinted) setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
+            alpha = if (tile.on || !tile.tinted) 1f else TILE_OFF_ALPHA
+        }, LinearLayout.LayoutParams(dp(if (tile.tinted) TILE_ICON_DP else TILE_APP_ICON_DP), dp(if (tile.tinted) TILE_ICON_DP else TILE_APP_ICON_DP)))
+        addView(line(tile.label, inkDim(if (onLight) INK_DIM else look?.subtitle ?: LIGHT_GRAY), 11f, maxWidthDp = TILE_LABEL_DP)
+            .apply { gravity = Gravity.CENTER })
+        isClickable = true
+        setOnClickListener {
+            if (deckOpen) restartDeckTimer()
+            tile.run()
+            if (tile.dismisses) collapse() else handler.postDelayed({ if (deckOpen) refreshDeck(Kind.SYSTEM) }, TILE_REFRESH_MS)
+        }
+        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP)) }
+    }
+
+    /** A list card's lines, one under the other: a number, then the text on one line. A tap runs the row; a long press its other action. */
+    private fun rowList(rows: List<Row>, kind: Kind) = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        layoutParams = LinearLayout.LayoutParams(dp(TILE_GRID_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+        rows.forEach { row ->
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(ROW_HEIGHT_DP)
+                setPadding(dp(12), dp(4), dp(12), dp(4))
+                background = GradientDrawable().apply {
+                    setColor(if (onLight) 0x14000000 else 0x1FFFFFFF)
+                    cornerRadius = dp(12).toFloat()
+                }
+                row.number?.let {
+                    addView(line(it.toString(), inkDim(if (onLight) INK_DIM else look?.subtitle ?: LIGHT_GRAY), 12f, bold = true, maxWidthDp = ROW_NUMBER_DP)
+                        .apply { minWidth = dp(ROW_NUMBER_DP) })
+                }
+                addView(line(row.text, ink(if (onLight) INK else look?.title ?: WHITE), 13f, maxWidthDp = ROW_TEXT_DP))
+                isClickable = true
+                setOnClickListener {
+                    if (deckOpen) restartDeckTimer()
+                    row.run()
+                    if (row.dismisses) collapse() else handler.postDelayed({ if (deckOpen) refreshDeck(kind) }, TILE_REFRESH_MS)
+                }
+                row.onLongPress?.let { hold ->
+                    setOnLongClickListener {
+                        if (deckOpen) restartDeckTimer()
+                        hold()
+                        handler.postDelayed({ if (deckOpen) refreshDeck(kind) }, TILE_REFRESH_MS)
+                        true
+                    }
+                }
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    .apply { topMargin = dp(3) }
+            })
+        }
+    }
 
     private fun progressBar(fraction: Float) =
         ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -1121,7 +1225,8 @@ class CapsuleOverlay(
         private const val DOT_OFF = 0x55FFFFFF
         private const val SIDE_MARGIN_DP = 12
         private const val MAX_TRAY = 5
-        private val GLYPH_KINDS = setOf(Kind.SYSTEM, Kind.FLASHLIGHT, Kind.TIMER, Kind.STOPWATCH, Kind.VOLUME, Kind.BARCODE)
+        private val GLYPH_KINDS = setOf(Kind.SYSTEM, Kind.FLASHLIGHT, Kind.TIMER, Kind.STOPWATCH, Kind.VOLUME, Kind.BARCODE, Kind.CLIPBOARD, Kind.NOTES,
+            Kind.BATTERY, Kind.STATS, Kind.CALENDAR, Kind.LAUNCHER, Kind.POMODORO)
         private const val SIDE_ICON_DP = 40
         private const val SIDE_GAP_DP = 8
         private const val SIDE_SLOT_DP = SIDE_ICON_DP + SIDE_GAP_DP
@@ -1132,6 +1237,19 @@ class CapsuleOverlay(
         private const val DEFAULT_GAP_BELOW_STATUS_BAR_DP = 8
         private const val IMAGE_WIDTH_DP = 260
         private const val DOT_DP = 6
+        private const val SECTION_GAP_DP = 14
+        private const val TILE_COLUMNS = 3
+        private const val TILE_GRID_WIDTH_DP = 272
+        private const val TILE_GRID_TOP_DP = 14
+        private const val TILE_GAP_DP = 4
+        private const val TILE_ICON_DP = 22
+        private const val TILE_APP_ICON_DP = 32
+        private const val TILE_LABEL_DP = 80
+        private const val TILE_OFF_ALPHA = 0.6f
+        private const val TILE_REFRESH_MS = 350L
+        private const val ROW_HEIGHT_DP = 34
+        private const val ROW_NUMBER_DP = 20
+        private const val ROW_TEXT_DP = 220
         private const val SEEK_HEIGHT_DP = 28
         private const val THUMB_DP = 12
         private const val PROGRESS_TICK_MS = 250L

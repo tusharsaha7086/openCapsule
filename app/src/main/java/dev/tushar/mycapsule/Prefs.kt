@@ -315,6 +315,27 @@ class Prefs(context: Context) {
 
     fun setCardEnabled(card: DeckCard, on: Boolean) = sp.edit().putBoolean("card_${card.name}", on).apply()
 
+    /** The packages shown on the quick launcher card, in the order they were chosen. */
+    var launcherApps: List<String>
+        get() = sp.getString(LAUNCHER_APPS, null).orEmpty().split(',').filter { it.isNotBlank() }
+        set(v) = sp.edit().putString(LAUNCHER_APPS, v.joinToString(",")).apply()
+
+    /** Whether copied text is remembered for the clipboard card. On unless switched off; nothing is kept while it is off. */
+    var clipboardRecording: Boolean
+        get() = sp.getBoolean(CLIPBOARD_RECORDING, true)
+        set(v) = sp.edit().putBoolean(CLIPBOARD_RECORDING, v).apply()
+
+    /**
+     * The order the cards appear in the deck. Saved as names; a card that is missing from the saved list (a newer
+     * version added it) goes last, and names that no longer exist are dropped.
+     */
+    var cardOrder: List<DeckCard>
+        get() {
+            val saved = sp.getString(CARD_ORDER, null).orEmpty().split(',').mapNotNull { name -> DeckCard.entries.firstOrNull { it.name == name } }
+            return (saved + DeckCard.entries).distinct()
+        }
+        set(v) = sp.edit().putString(CARD_ORDER, v.joinToString(",") { it.name }).apply()
+
     /**
      * The gesture that opens a live card (see [CapsuleEvent.live]) instead of running its own action, while something
      * is live. Any other gesture, and this one when nothing is live, does what it is mapped to.
@@ -390,6 +411,10 @@ class Prefs(context: Context) {
         private const val SHOW_SILENT = "show_silent_notifications"
         private const val SHOW_ONGOING = "show_ongoing_notifications"
         private const val DYNAMIC_CARD_GESTURE = "dynamic_card_gesture"
+        private const val CARD_ORDER = "card_order"
+        private const val CLIPBOARD_RECORDING = "clipboard_recording"
+        private const val LAUNCHER_APPS = "launcher_apps"
+        const val MAX_LAUNCHER_APPS = 9
         private const val LOW_BATTERY = "low_battery_percent"
         private const val SHAPE = "shape"
         private const val ALIGN = "align"

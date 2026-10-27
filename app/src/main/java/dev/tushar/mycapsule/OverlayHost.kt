@@ -40,6 +40,9 @@ object OverlayHost {
         listeners -= listener
     }
 
+    /** Types [text] into the field being typed in, through the accessibility service. False when it is off or no field has focus. */
+    fun paste(text: String) = (service as? OverlayHostService)?.paste(text) == true
+
     /** Whether the accessibility service is connected, i.e. capsules draw above the status bar. */
     val isAboveStatusBar get() = service != null
 

@@ -35,9 +35,22 @@ timers and more grow out of it and shrink back when done. Written in Kotlin with
 
 **Dynamic cards**
 
-Under **Capsule, Capsules, Dynamic cards** each card of the deck has its own switch: media player, volume, timer,
-stopwatch, flashlight and barcode. A card appears only while it has something to show (a song, music playing for the
-volume card, a running timer or stopwatch, a saved barcode). The same page picks the gesture that opens a *live* card.
+Under **Capsule, Capsules, Dynamic cards** each card of the deck has its own switch: media player, volume, timer and
+stopwatch, quick settings, and barcode. The timer and stopwatch share one card, one above the other. Quick settings is
+a grid of tiles for the flashlight, Wi-Fi, Bluetooth, hotspot, airplane mode, Do Not Disturb, auto-rotate, location and
+VPN, lit while they are on; the flashlight switches on the tile, and the others open their Settings page (Android does
+not let an app change them). **Clipboard** lists your last copies as numbered lines: tap one to paste it into the open text field, hold to remove it
+(it needs the accessibility service). **Notes** lists your latest quick notes: tap one to edit it, or press New note.
+**Calendar** shows what is on now or next (with a Join button for Meet, Zoom, Teams and Webex links) and the next
+few events; it asks for calendar access once and only reads. **Battery** shows level, charging state, time to full,
+temperature and health. **Quick launcher** is a grid of up to 9 apps you pick (Dynamic cards, Quick launcher apps).
+**Pomodoro** runs 25 minute focus parts with 5 minute breaks and a 15 minute break every fourth round, with a buzz
+and a brief capsule when a part ends. **Phone stats** shows memory, storage, live network speed, processor cores and
+clock, heat and uptime; Android does not let an app read the processor's load, so there is no CPU percentage. Battery,
+stats and Pomodoro redraw by themselves while the deck is open.
+The other cards appear only while they have something to show (a song, music playing for
+the volume card, a running timer or stopwatch, a saved barcode). Its **Order** section moves each card up or down to set
+the order you swipe through them. The same page picks the gesture that opens a *live* card.
 A card is live while music plays, a timer or stopwatch runs, the torch is on, or the volume is in use. While one is
 live, the chosen gesture (single tap by default) opens the deck on that card instead of running its own action; every
 other gesture keeps its mapping, and the chosen one behaves normally when nothing is live. Start a stopwatch from
@@ -223,8 +236,11 @@ only be painted inside its own shape, so drop shadows are the Theme "Shadow" set
   - **Display over other apps** (needed to draw capsules).
   - **Notification access** (needed to read notifications and media sessions).
   - **Accessibility service** (optional). When on, capsules draw above the status bar and over the camera.
-    Without it they sit below the status bar. The service receives no events and reads no screen content;
-    it only provides the overlay window layer.
+    Without it they sit below the status bar. The service also powers the Clipboard card: it hears each copy
+    and, when you tap an item, types it into the text field that has the cursor. It receives no events and does
+    not read the rest of the screen; the only thing it looks at is which field has the cursor, at the moment
+    you tap an item. Copies are kept on the phone only (last 30, text only, anything an app marks as sensitive
+    is skipped) and can be switched off or cleared under Dynamic cards.
 - Sideloaded apps need **Allow restricted settings** (App info, then the menu) before Android lets you turn on
   an accessibility service.
 - Note: force-stopping the app makes Android switch the accessibility service off. Turn it on again.

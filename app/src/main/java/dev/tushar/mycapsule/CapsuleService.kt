@@ -28,7 +28,8 @@ class CapsuleService : NotificationListenerService() {
         listOf(
             notifications, media, flashlight, TimerSource(), barcode, GestureReceiver(),
             ChargingSource(), SystemBroadcastSource(), NetworkSource(), HeadphonesSource(), RotationSource(),
-            VolumeSource(), StopwatchSource(),
+            VolumeSource(), StopwatchSource(), ControlsSource(flashlight),
+            ClipboardSource(), NotesSource(), CalendarSource(), BatterySource(), LauncherSource(), PomodoroSource(), StatsSource(),
         )
 
     private lateinit var prefs: Prefs
@@ -45,9 +46,13 @@ class CapsuleService : NotificationListenerService() {
             context = this,
             prefs = prefs,
             withIdlePill = true,
-            // Cards switched off under Dynamic cards stay out of the deck.
+            // Cards switched off under Dynamic cards stay out of the deck, and the rest follow the order chosen there.
             deckProvider = {
-                sources.mapNotNull { it.card(this) }.filter { card -> DeckCard.of(card.kind)?.let(prefs::cardEnabled) ?: true }
+                val order = prefs.cardOrder
+                val cards = sources.mapNotNull { it.card(this) }
+                    .filter { card -> DeckCard.of(card.kind)?.let(prefs::cardEnabled) ?: true }
+                DeckCard.mergeClock(cards)
+                    .sortedBy { card -> DeckCard.of(card.kind)?.let(order::indexOf) ?: order.size }
             },
             onGesture = ::perform,
         )
