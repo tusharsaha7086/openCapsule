@@ -1,0 +1,14 @@
+﻿# Gradle / Android build output
+.gradle/
+.kotlin/
+build/
+*.apk
+*.aab
+
+# Machine-specific
+local.properties
+.idea/
+*.iml
+
+# Screen-recording frames used to check the animation
+motion-frames/

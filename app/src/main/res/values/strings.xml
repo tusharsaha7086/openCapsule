@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">openCapsule</string>
+    <string name="overlay_host_description">Lets openCapsule draw its pill above the status bar and over the camera. It does not read your screen or receive any events.</string>
+</resources>

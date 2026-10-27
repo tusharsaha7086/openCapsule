@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-first Material 3 theme. The screen is always dark so the capsule colours read the same everywhere. -->
+    <style name="Theme.OpenCapsule" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/oc_accent</item>
+        <item name="colorOnPrimary">@color/oc_bg</item>
+        <item name="colorSurface">@color/oc_surface</item>
+        <item name="colorOnSurface">@color/oc_text</item>
+        <item name="android:windowBackground">@color/oc_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
+
+    <!-- Shown by the system while the app starts: just the brand background. The logo is drawn by the in-app splash,
+         which is bigger than a system splash icon is allowed to be. -->
+    <style name="Theme.OpenCapsule.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>
+        <item name="postSplashScreenTheme">@style/Theme.OpenCapsule</item>
+    </style>
+
+    <!-- The small box the capsule's Reply button opens. -->
+    <style name="Theme.OpenCapsule.Reply" parent="Theme.Material3.Dark.Dialog">
+        <item name="colorPrimary">@color/oc_accent</item>
+        <item name="colorOnPrimary">@color/oc_bg</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>
