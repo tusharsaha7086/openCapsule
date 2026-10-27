@@ -24,7 +24,9 @@ object SystemLinks {
     private fun candidates(event: SystemEvent): List<Intent> = when (event) {
         SystemEvent.CHARGING_STARTED, SystemEvent.CHARGING_STOPPED, SystemEvent.LOW_BATTERY ->
             listOf(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
-        SystemEvent.WIFI_CONNECTED, SystemEvent.WIFI_DISCONNECTED -> listOf(Intent(Settings.ACTION_WIFI_SETTINGS))
+        SystemEvent.WIFI_CONNECTED, SystemEvent.WIFI_DISCONNECTED, SystemEvent.WIFI_ON, SystemEvent.WIFI_OFF ->
+            listOf(Intent(Settings.ACTION_WIFI_SETTINGS))
+        SystemEvent.LOCATION_ON, SystemEvent.LOCATION_OFF -> listOf(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
         // The hotspot has its own page on stock Android; other makers may not, so it falls back to the networks page.
         SystemEvent.HOTSPOT_ON, SystemEvent.HOTSPOT_OFF -> listOf(
             component("com.android.settings.Settings\$WifiTetherSettingsActivity"),

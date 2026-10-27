@@ -15,7 +15,7 @@ timers and more grow out of it and shrink back when done. Written in Kotlin with
 | Notifications | App icon, title and text; tap opens the notification |
 | Calls, navigation | Ongoing call and navigation notifications |
 | Media | Track, artist and cover art, with play/pause. Long-press for previous / next |
-| System events | 21 phone events, each with its own switch (see below): battery, Wi-Fi, hotspot, Bluetooth, airplane mode, sound mode, Do Not Disturb, headphones, VPN, auto-rotate, unlock |
+| System events | 25 phone events, each with its own switch (see below): battery, Wi-Fi, hotspot, location, Bluetooth, airplane mode, sound mode, Do Not Disturb, headphones, VPN, auto-rotate, unlock |
 | Flashlight | On/off, with a button to turn it off |
 | Progress | Determinate download or progress notifications, with a progress bar |
 | Volume | The media volume while music plays, with a bar and down/up buttons (off by default) |
@@ -71,7 +71,8 @@ win while that switch is on.
 
 Under **Customize, Colors** the text on the capsule is automatic by default: light or dark, to suit the capsule's colour.
 Switch *Automatic text color* off to choose your own from seven presets or a custom colour. It colours the text,
-icons, bars, dots and buttons, in the brief capsules and in the expanded view alike. The border (under **Shape and
+icons, bars, dots and buttons, in the brief capsules and in the expanded view alike. The icon on a capsule follows it too when it
+is a plain glyph (a system event, the torch, a timer and so on); app icons, avatars and album art keep their own colours. The border (under **Shape and
 border**) has a custom colour as well as its five presets. The custom picker for text previews your colour on the
 capsule's own colour. Rows of swatches and style tiles wrap onto more lines instead of scrolling sideways, so nothing runs
 past the edge of its card.
@@ -153,8 +154,9 @@ off at once. Charging started, charging stopped and low battery are on by defaul
 | Group | Events |
 |---|---|
 | Battery | Charging started, charging stopped, low battery (shows at 5, 10, 15 or 20%) |
-| Wi-Fi | Connected, disconnected |
+| Wi-Fi | Turned on, turned off, connected to a network, disconnected |
 | Hotspot | Turned on, turned off |
+| Location | Turned on, turned off (location services; needs no location permission) |
 | Bluetooth | Turned on, turned off |
 | Airplane mode | On, off |
 | Sound | Sound mode (ring, vibrate, silent), Do Not Disturb on, Do Not Disturb off |
@@ -181,7 +183,7 @@ banner that is no longer true (the torch turned off) drops out. If a call or not
 banners come back when it is gone.
 
 Each source remembers the last state it saw and only reports real changes. Turning an event on shows a sample of it.
-The only new permission is `ACCESS_NETWORK_STATE`, for Wi-Fi and VPN.
+The permissions it needs for these are `ACCESS_NETWORK_STATE` (Wi-Fi and VPN) and `ACCESS_WIFI_STATE` (without it Android does not tell the app when the hotspot changes). Neither asks you anything.
 
 **Settings layout**
 

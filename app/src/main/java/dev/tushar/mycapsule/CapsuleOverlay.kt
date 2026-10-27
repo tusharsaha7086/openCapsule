@@ -480,7 +480,18 @@ class CapsuleOverlay(
             params.y = baseY - extra
             v.setPadding(v.paddingLeft, v.paddingTop + extra, v.paddingRight, v.paddingBottom)
         }
-        target.windowManager.addView(v, params)
+        try {
+            target.windowManager.addView(v, params)
+        } catch (e: WindowManager.BadTokenException) {
+            // The accessibility layer's window has been taken away. Stop using it and draw the normal way instead of crashing.
+            if (target.aboveStatusBar) {
+                OverlayHost.drop()
+                render(event, anim, previous)
+            } else {
+                current = null
+            }
+            return
+        }
 
         view = v
         viewTarget = target
@@ -619,7 +630,12 @@ class CapsuleOverlay(
         val params = layoutParams(target)
         params.y = viewBaseY - extra
         if (extra > 0) fresh.setPadding(fresh.paddingLeft, fresh.paddingTop + extra, fresh.paddingRight, fresh.paddingBottom)
-        target.windowManager.addView(fresh, params)
+        try {
+            target.windowManager.addView(fresh, params)
+        } catch (e: WindowManager.BadTokenException) {
+            if (target.aboveStatusBar) OverlayHost.drop()
+            return
+        }
 
         removeStale()
         stale = old
@@ -766,6 +782,9 @@ class CapsuleOverlay(
                 layoutParams = LinearLayout.LayoutParams(dp(iconSize), dp(iconSize)).apply { marginEnd = dp(12) }
             }
             val corner = if (expanded) 14 else 8
+            // A plain glyph (system events, the torch, timers and so on) takes the text colour, like the buttons do. App
+            // icons, avatars and album art keep their own colours.
+            if (event.kind in GLYPH_KINDS) icon.setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
             // Notifications take the icon shape chosen in settings; every other capsule keeps its rounded corners.
             if (event.kind == Kind.MESSAGE) {
                 prefs.iconShape.applyTo(icon, corner)
@@ -1102,6 +1121,7 @@ class CapsuleOverlay(
         private const val DOT_OFF = 0x55FFFFFF
         private const val SIDE_MARGIN_DP = 12
         private const val MAX_TRAY = 5
+        private val GLYPH_KINDS = setOf(Kind.SYSTEM, Kind.FLASHLIGHT, Kind.TIMER, Kind.STOPWATCH, Kind.VOLUME, Kind.BARCODE)
         private const val SIDE_ICON_DP = 40
         private const val SIDE_GAP_DP = 8
         private const val SIDE_SLOT_DP = SIDE_ICON_DP + SIDE_GAP_DP

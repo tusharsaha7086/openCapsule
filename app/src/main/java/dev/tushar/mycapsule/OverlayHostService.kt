@@ -18,6 +18,11 @@ class OverlayHostService : AccessibilityService() {
 
     override fun onInterrupt() = Unit
 
+    override fun onDestroy() {
+        OverlayHost.detach(this)
+        super.onDestroy()
+    }
+
     override fun onUnbind(intent: Intent?): Boolean {
         OverlayHost.detach(this)
         return super.onUnbind(intent)

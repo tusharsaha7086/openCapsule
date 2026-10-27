@@ -6,6 +6,7 @@ enum class SystemGroup(val label: String) {
     WIFI("Wi-Fi"),
     HOTSPOT("Hotspot"),
     BLUETOOTH("Bluetooth"),
+    LOCATION("Location"),
     AIRPLANE("Airplane mode"),
     SOUND("Sound"),
     HEADPHONES("Headphones"),
@@ -33,8 +34,14 @@ enum class SystemEvent(
     WIFI_CONNECTED(SystemGroup.WIFI, "Wi-Fi connected", "When a Wi-Fi network connects", R.drawable.ic_wifi),
     WIFI_DISCONNECTED(SystemGroup.WIFI, "Wi-Fi disconnected", "When a Wi-Fi network disconnects", R.drawable.ic_wifi_off),
 
+    WIFI_ON(SystemGroup.WIFI, "Wi-Fi turned on", "When Wi-Fi is switched on", R.drawable.ic_wifi),
+    WIFI_OFF(SystemGroup.WIFI, "Wi-Fi turned off", "When Wi-Fi is switched off", R.drawable.ic_wifi_off),
+
     HOTSPOT_ON(SystemGroup.HOTSPOT, "Hotspot turned on", "When your phone starts sharing its connection over Wi-Fi", R.drawable.ic_wifi_tethering),
     HOTSPOT_OFF(SystemGroup.HOTSPOT, "Hotspot turned off", "When your phone stops sharing its connection", R.drawable.ic_wifi_tethering_off),
+
+    LOCATION_ON(SystemGroup.LOCATION, "Location turned on", "When location services are switched on", R.drawable.ic_location_on),
+    LOCATION_OFF(SystemGroup.LOCATION, "Location turned off", "When location services are switched off", R.drawable.ic_location_off),
 
     BLUETOOTH_ON(SystemGroup.BLUETOOTH, "Bluetooth turned on", "When Bluetooth is switched on", R.drawable.ic_bluetooth),
     BLUETOOTH_OFF(SystemGroup.BLUETOOTH, "Bluetooth turned off", "When Bluetooth is switched off", R.drawable.ic_bluetooth_disabled),

@@ -26,6 +26,12 @@ object OverlayHost {
         if (this.service === service) swap(null)
     }
 
+    /**
+     * Stops using the accessibility layer, for when Android has taken its window away (the service was switched off or
+     * replaced) without telling us. Drawing then falls back to the normal overlay; if the service comes back, it attaches again.
+     */
+    fun drop() = swap(null)
+
     fun onChange(listener: () -> Unit) {
         listeners += listener
     }

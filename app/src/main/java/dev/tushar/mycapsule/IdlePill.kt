@@ -48,6 +48,9 @@ class IdlePill(
         runCatching { t.windowManager.addView(v, layoutParams(t)) }.onSuccess {
             view = v
             target = t
+        }.onFailure {
+            // The accessibility layer may have gone away; fall back to the normal overlay for what comes next.
+            if (t.aboveStatusBar) OverlayHost.drop()
         }
     }
 

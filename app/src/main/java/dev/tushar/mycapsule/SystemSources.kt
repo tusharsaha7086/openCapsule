@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.location.LocationManager
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -14,6 +15,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -105,6 +107,9 @@ class SystemBroadcastSource : ReceiverSource(
         NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED,
         Intent.ACTION_USER_PRESENT,
         ACTION_HOTSPOT_STATE,
+        WifiManager.WIFI_STATE_CHANGED_ACTION,
+        LocationManager.MODE_CHANGED_ACTION,
+        LocationManager.PROVIDERS_CHANGED_ACTION,
     ),
     exported = false,
 ) {
@@ -115,6 +120,8 @@ class SystemBroadcastSource : ReceiverSource(
 
     /** Whether the hotspot is on, as far as we have been told. The system only announces changes, so this starts unknown. */
     private var hotspot: Boolean? = null
+    private var wifi: Boolean? = null
+    private var location: Boolean? = null
 
     override fun start(context: Context, emit: (CapsuleEvent) -> Unit) {
         // Learn where things stand now, so the first broadcast is compared with something.
@@ -122,6 +129,8 @@ class SystemBroadcastSource : ReceiverSource(
         airplane = Settings.Global.getInt(context.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) != 0
         ringer = context.getSystemService(AudioManager::class.java)?.ringerMode
         doNotDisturb = isDoNotDisturb(context)
+        wifi = runCatching { context.getSystemService(WifiManager::class.java)?.isWifiEnabled }.getOrNull()
+        location = isLocationOn(context)
         super.start(context, emit)
     }
 
@@ -132,9 +141,40 @@ class SystemBroadcastSource : ReceiverSource(
             AudioManager.RINGER_MODE_CHANGED_ACTION -> onRinger(context, intent)
             NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED -> onDoNotDisturb(context)
             ACTION_HOTSPOT_STATE -> onHotspot(context, intent)
+            WifiManager.WIFI_STATE_CHANGED_ACTION -> onWifi(context, intent)
+            LocationManager.MODE_CHANGED_ACTION, LocationManager.PROVIDERS_CHANGED_ACTION -> onLocation(context)
             Intent.ACTION_USER_PRESENT -> emit(capsule(context, SystemEvent.UNLOCK, "Unlocked"))
         }
     }
+
+    private fun onWifi(context: Context, intent: Intent) {
+        // Only the settled states count; "turning on" and "turning off" are on the way to one of these.
+        val on = when (intent.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)) {
+            WifiManager.WIFI_STATE_ENABLED -> true
+            WifiManager.WIFI_STATE_DISABLED -> false
+            else -> return
+        }
+        if (wifi == on) return
+        wifi = on
+        emit(
+            if (on) capsule(context, SystemEvent.WIFI_ON, "Wi-Fi on")
+            else capsule(context, SystemEvent.WIFI_OFF, "Wi-Fi off"),
+        )
+    }
+
+    private fun onLocation(context: Context) {
+        val on = isLocationOn(context) ?: return
+        // Android announces both the mode and the providers changing for one switch; only a real change counts.
+        if (location == on) return
+        location = on
+        emit(
+            if (on) capsule(context, SystemEvent.LOCATION_ON, "Location on")
+            else capsule(context, SystemEvent.LOCATION_OFF, "Location off"),
+        )
+    }
+
+    private fun isLocationOn(context: Context): Boolean? =
+        runCatching { context.getSystemService(LocationManager::class.java)?.isLocationEnabled }.getOrNull()
 
     private fun onHotspot(context: Context, intent: Intent) {
         // Only the settled states count: 13 is on and 11 is off; 12 (turning on), 10 (turning off) and 14 (failed) are not news.
