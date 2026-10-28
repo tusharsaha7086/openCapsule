@@ -205,6 +205,14 @@ class Prefs(context: Context) {
     fun setAction(gesture: Gesture, action: GestureAction) = write("gesture_${gesture.name}", action)
 
     /** Calls [onChange] after any setting changes. The returned listener must be kept referenced. */
+    /** Stops a listener made by [listen]. */
+    fun unlisten(listener: SharedPreferences.OnSharedPreferenceChangeListener) = sp.unregisterOnSharedPreferenceChangeListener(listener)
+
+    /**
+     * Calls [onChange] whenever a setting changes. Android holds the returned listener only weakly, so the caller must keep it
+     * (and actually use it, for instance to [unlisten] it: a field that is only assigned can be removed by the shrinker, and
+     * the listener then stops being called).
+     */
     fun listen(onChange: () -> Unit): SharedPreferences.OnSharedPreferenceChangeListener {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> onChange() }
         sp.registerOnSharedPreferenceChangeListener(listener)

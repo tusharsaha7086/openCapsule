@@ -164,6 +164,9 @@ class CapsuleService : NotificationListenerService() {
     override fun onListenerDisconnected() = shutDown()
 
     override fun onDestroy() {
+        // Read here on purpose: a listener field that is only assigned would be removed by the shrinker in a release build, and the
+        // listener (held weakly by the settings) would be collected, so changes to the settings would stop reaching the pet and pill.
+        prefs.unlisten(prefsListener)
         shutDown()
         super.onDestroy()
     }
