@@ -90,6 +90,15 @@ border**) has a custom colour as well as its five presets. The custom picker for
 capsule's own colour. Rows of swatches and style tiles wrap onto more lines instead of scrolling sideways, so nothing runs
 past the edge of its card.
 
+**Deck colors**
+
+Under **Customize, Expanded view, Deck colors**, *Own colors for the deck* gives the expanded deck its own background and
+text, apart from the capsule's. Each of the phone's two themes has its own background (the 11 presets or a custom color)
+and its own text color (7 presets or a custom color), and *Automatic deck text color* picks light or dark text to suit the
+background. The icons, bars, dots and buttons always take the text color, and the tiles, rows and chips are washes of that
+same color, so a deck stays in one color family. It is off by default, and then the deck wears the capsule's colors as
+before. *Same height for every card* keeps all the cards one size.
+
 **Notification look**
 
 Under **Capsule, Capsules, Notification look**:

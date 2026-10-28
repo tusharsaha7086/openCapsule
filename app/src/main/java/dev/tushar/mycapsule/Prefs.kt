@@ -87,6 +87,56 @@ class Prefs(context: Context) {
             customColorLight?.takeIf { useCustomLight } ?: swatchLight.color
         }
 
+    /** Whether the expanded deck has colours of its own. Off (the default), it wears the capsule's colour and text colour. */
+    var deckColors: Boolean
+        get() = sp.getBoolean(DECK_COLORS, false)
+        set(v) = sp.edit().putBoolean(DECK_COLORS, v).apply()
+
+    /** Whether the deck's text, icons and bars are picked for you (light or dark, to suit the deck's colour). */
+    var deckTextAuto: Boolean
+        get() = sp.getBoolean(DECK_TEXT_AUTO, true)
+        set(v) = sp.edit().putBoolean(DECK_TEXT_AUTO, v).apply()
+
+    private fun theme(night: Boolean) = if (night) "dark" else "light"
+
+    fun deckSwatch(night: Boolean): Swatch = read("deck_swatch_${theme(night)}", if (night) Swatch.GRAPHITE else Swatch.SNOW)
+
+    fun setDeckSwatch(night: Boolean, v: Swatch) = write("deck_swatch_${theme(night)}", v)
+
+    /** A colour of the user's own for the deck background, kept while a preset is in use (see [customColorDark]). */
+    fun deckCustomColor(night: Boolean): Int? = sp.getInt("deck_custom_${theme(night)}", 0).takeIf { sp.contains("deck_custom_${theme(night)}") }
+
+    fun setDeckCustomColor(night: Boolean, v: Int) = sp.edit().putInt("deck_custom_${theme(night)}", v or OPAQUE).apply()
+
+    fun deckUseCustom(night: Boolean) = sp.getBoolean("deck_use_custom_${theme(night)}", false)
+
+    fun setDeckUseCustom(night: Boolean, v: Boolean) = sp.edit().putBoolean("deck_use_custom_${theme(night)}", v).apply()
+
+    fun deckTextPreset(night: Boolean): TextPreset = read("deck_text_${theme(night)}", if (night) TextPreset.MINT else TextPreset.INK)
+
+    fun setDeckTextPreset(night: Boolean, v: TextPreset) = write("deck_text_${theme(night)}", v)
+
+    fun deckCustomText(night: Boolean): Int? = sp.getInt("deck_custom_text_${theme(night)}", 0).takeIf { sp.contains("deck_custom_text_${theme(night)}") }
+
+    fun setDeckCustomText(night: Boolean, v: Int) = sp.edit().putInt("deck_custom_text_${theme(night)}", v or OPAQUE).apply()
+
+    fun deckUseCustomText(night: Boolean) = sp.getBoolean("deck_use_custom_text_${theme(night)}", false)
+
+    fun setDeckUseCustomText(night: Boolean, v: Boolean) = sp.edit().putBoolean("deck_use_custom_text_${theme(night)}", v).apply()
+
+    /** The deck's background for the phone's current theme: the custom colour if it is in use, else the chosen preset. */
+    fun deckColor(context: Context): Int {
+        val night = isNight(context)
+        return deckCustomColor(night)?.takeIf { deckUseCustom(night) } ?: deckSwatch(night).color
+    }
+
+    /** The colour of the deck's text, icons and bars, or null while it is automatic (light or dark to suit [deckColor]). */
+    fun deckInk(context: Context): Int? {
+        if (deckTextAuto) return null
+        val night = isNight(context)
+        return deckCustomText(night)?.takeIf { deckUseCustomText(night) } ?: deckTextPreset(night).color
+    }
+
     var align: Align
         get() = read(ALIGN, Align.CENTER)
         set(v) = write(ALIGN, v)
@@ -431,6 +481,8 @@ class Prefs(context: Context) {
         private const val USE_CUSTOM_DARK = "use_custom_dark"
         private const val USE_CUSTOM_LIGHT = "use_custom_light"
         private const val OPAQUE = 0xFF000000.toInt()
+        private const val DECK_COLORS = "deck_colors"
+        private const val DECK_TEXT_AUTO = "deck_text_auto"
         private const val TEXT_AUTO = "text_auto"
         private const val TEXT_PRESET = "text_preset"
         private const val CUSTOM_TEXT = "custom_text_color"

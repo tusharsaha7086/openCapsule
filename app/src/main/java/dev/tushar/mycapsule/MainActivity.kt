@@ -965,6 +965,44 @@ class MainActivity : AppCompatActivity() {
                 prefs.uniformDeck = it
             })
         }
+        section("Deck colors") {
+            addRow(switchRow(R.drawable.ic_palette, "Own colors for the deck",
+                "Give the expanded deck its own background and text. Off, it wears the capsule's colors.", prefs.deckColors, after = {
+                    window.decorView.post { rebuild() }
+                }) { prefs.deckColors = it })
+            if (prefs.deckColors) {
+                val night = isNight(applicationContext)
+                listOf(true, false).forEach { dark ->
+                    val name = if (dark) "dark" else "light"
+                    val inUse = if (dark == night) " (in use now)" else ""
+                    addRow(controlRow(R.drawable.ic_palette, "Deck background, $name theme$inUse", "The deck's color while the phone is in its $name theme",
+                        swatches(Swatch.entries, prefs.deckSwatch(dark), Swatch::color, Swatch::label, custom = CustomColor(
+                            saved = { prefs.deckCustomColor(dark) }, active = { prefs.deckUseCustom(dark) },
+                            use = { prefs.setDeckCustomColor(dark, it); prefs.setDeckUseCustom(dark, true) },
+                            clear = { prefs.setDeckUseCustom(dark, false) },
+                        )) { prefs.setDeckSwatch(dark, it) }))
+                }
+                addRow(switchRow(R.drawable.ic_format_color_text, "Automatic deck text color",
+                    "Light or dark text to suit the deck's color. Turn it off to choose your own below. Icons always match the text.", prefs.deckTextAuto, after = {
+                        window.decorView.post { rebuild() }
+                    }) { prefs.deckTextAuto = it })
+                listOf(true, false).forEach { dark ->
+                    val name = if (dark) "dark" else "light"
+                    val inUse = if (dark == night) " (in use now)" else ""
+                    addRow(controlRow(R.drawable.ic_format_color_text, "Deck text and icons, $name theme$inUse",
+                        "For the text, icons, bars and buttons on the deck",
+                        swatches(TextPreset.entries, prefs.deckTextPreset(dark), TextPreset::color, TextPreset::label, custom = CustomColor(
+                            forText = true,
+                            saved = { prefs.deckCustomText(dark) }, active = { prefs.deckUseCustomText(dark) && !prefs.deckTextAuto },
+                            use = { prefs.setDeckCustomText(dark, it); prefs.setDeckUseCustomText(dark, true); prefs.deckTextAuto = false },
+                            clear = { prefs.setDeckUseCustomText(dark, false) },
+                        ), suppress = { prefs.deckTextAuto }) {
+                            prefs.setDeckTextPreset(dark, it)
+                            prefs.deckTextAuto = false
+                        }))
+                }
+            }
+        }
         section("Idle pill") {
             addRow(switchRow(R.drawable.ic_circle, "Show the pill", "A small pill over the camera. Tap it to expand your cards.", prefs.idleEnabled) { prefs.idleEnabled = it })
             addRow(switchRow(R.drawable.ic_stay_current_landscape, "Hide the pill in landscape",

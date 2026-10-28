@@ -107,7 +107,15 @@ class CapsuleOverlay(
     private var stacked = false
 
     /** The text colour chosen in settings, or null while it is automatic. */
-    private val userInk: Int? get() = prefs.textInk()
+    private val ownDeck: Boolean get() = deckOpen && prefs.deckColors
+    private val userInk: Int? get() = if (ownDeck) prefs.deckInk(context) else prefs.textInk()
+
+    /**
+     * A panel wash inside the deck: the text colour at [percent] opacity while the deck has colours of its own, so panels,
+     * tiles and chips stay in the same colour family as the text and icons. Otherwise [plain], the fixed white or black wash.
+     */
+    private fun wash(percent: Int, plain: Int): Int =
+        if (ownDeck) ((userInk ?: if (onLight) INK else WHITE) and 0x00FFFFFF) or (percent * 255 / 100 shl 24) else plain
     private fun ink(auto: Int) = userInk ?: auto
     private fun inkDim(auto: Int) = userInk?.let { (it and 0x00FFFFFF) or 0xBF000000.toInt() } ?: auto
     private fun inkTrack(auto: Int) = userInk?.let { (it and 0x00FFFFFF) or 0x44000000 } ?: auto
@@ -688,7 +696,7 @@ class CapsuleOverlay(
         val root = LinearLayout(context).apply {
             orientation = if (vertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = if (vertical) Gravity.CENTER_HORIZONTAL else Gravity.CENTER_VERTICAL
-            val color = event.accent.takeIf { prefs.coverColors } ?: prefs.capsuleColor(context)
+            val color = if (ownDeck) prefs.deckColor(context) else event.accent.takeIf { prefs.coverColors } ?: prefs.capsuleColor(context)
             // Dark text on a light capsule. The styles' own text colours are made for dark capsules, so they step aside.
             onLight = isLightColor(color)
             val radius = dp(prefs.shape.radiusDp).toFloat()
@@ -861,8 +869,8 @@ class CapsuleOverlay(
         setPadding(dp(4), dp(10), dp(4), dp(10))
         background = GradientDrawable().apply {
             setColor(
-                if (tile.on) (if (onLight) 0x33000000 else 0x44FFFFFF)
-                else (if (onLight) 0x0F000000 else 0x14FFFFFF),
+                if (tile.on) wash(18, if (onLight) 0x33000000 else 0x44FFFFFF)
+                else wash(7, if (onLight) 0x0F000000 else 0x14FFFFFF),
             )
             cornerRadius = dp(14).toFloat()
         }
@@ -893,7 +901,7 @@ class CapsuleOverlay(
                         gravity = Gravity.CENTER
                         setPadding(dp(6), dp(8), dp(6), dp(8))
                         background = GradientDrawable().apply {
-                            setColor(if (onLight) 0x14000000 else 0x1FFFFFFF)
+                            setColor(wash(8, if (onLight) 0x14000000 else 0x1FFFFFFF))
                             cornerRadius = dp(12).toFloat()
                         }
                         contentDescription = "${stat.description} ${stat.value}"
@@ -921,7 +929,7 @@ class CapsuleOverlay(
                 minimumHeight = dp(ROW_HEIGHT_DP)
                 setPadding(dp(12), dp(4), dp(12), dp(4))
                 background = GradientDrawable().apply {
-                    setColor(if (onLight) 0x14000000 else 0x1FFFFFFF)
+                    setColor(wash(8, if (onLight) 0x14000000 else 0x1FFFFFFF))
                     cornerRadius = dp(12).toFloat()
                 }
                 row.number?.let {
@@ -1087,8 +1095,8 @@ class CapsuleOverlay(
         gravity = Gravity.CENTER
         setSingleLine()
         setPadding(dp(12), dp(8), dp(12), dp(8))
-        background = look?.takeIf { !onLight }?.chip?.invoke(dp(16).toFloat()) ?: GradientDrawable().apply {
-            setColor(if (onLight) 0x22000000 else 0x33FFFFFF)
+        background = look?.takeIf { !onLight && !ownDeck }?.chip?.invoke(dp(16).toFloat()) ?: GradientDrawable().apply {
+            setColor(wash(14, if (onLight) 0x22000000 else 0x33FFFFFF))
             cornerRadius = dp(16).toFloat()
         }
         setOnClickListener {
