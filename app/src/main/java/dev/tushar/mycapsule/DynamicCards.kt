@@ -71,8 +71,9 @@ enum class DeckCard(val kind: Kind, val label: String, val hint: String, val ico
             val pages = mergeClock(cards).groupBy { pageOf(it.kind) }.values
             return pages.map { members ->
                 val page = of(members.first().kind)?.let { DeckPage.of(it) }
-                // Within a page the cards keep the page's own order (settings before apps), whatever the saved order is.
-                val sorted = members.sortedBy { card -> page?.cards?.indexOf(of(card.kind)) ?: 0 }
+                // Within a page the cards follow the order chosen under Dynamic cards, so the first tab is the card that is
+                // first there and moving a card down moves its tab to the right.
+                val sorted = members.sortedBy(::rank)
                 if (sorted.size == 1) return@map sorted.first()
                 val tabbed = page?.tabbed == true
                 sorted.first().copy(

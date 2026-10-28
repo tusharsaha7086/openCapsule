@@ -452,6 +452,13 @@ class CapsuleOverlay(
         haptic()
         deck = deckProvider().ifEmpty { listOf(placeholder()) }
         deckIndex = deck.indexOfFirst { slot(it.kind) == slot(startAt) }.coerceAtLeast(0)
+        // Every page starts on its first card again, except that a card opened because it is live (a running timer) is the one shown.
+        tabSelection.clear()
+        val opened = deck[deckIndex]
+        if (startAt != null && opened.tabs.isNotEmpty()) {
+            opened.sections.firstOrNull { DeckCard.of(it.kind) == DeckCard.of(startAt) }
+                ?.let { tabSelection[DeckCard.pageOf(opened.kind)] = it.kind }
+        }
         val previous = bodySize()
         resetState()
         deckOpen = true
@@ -525,8 +532,12 @@ class CapsuleOverlay(
     /** The deck card a kind of event shows on. Kinds that share a card (timer and stopwatch, torch and phone events) answer alike. */
     private fun slot(kind: Kind?): Any? = kind?.let(DeckCard::pageOf)
 
-    /** The tab chosen on each page of the deck, kept while the deck stays open. */
-    private val tabSelection = mutableMapOf<Any, Int>()
+    /**
+     * The card chosen on each tabbed page of the deck, kept while the deck stays open and forgotten when it opens again, so
+     * a page always starts on its first card in the order chosen under Dynamic cards. Kept by card, not by place, so a card
+     * appearing or leaving while the deck is open does not move the choice onto another.
+     */
+    private val tabSelection = mutableMapOf<Any, Kind>()
 
     private fun placeholder() = CapsuleEvent(
         kind = Kind.MESSAGE,
@@ -817,7 +828,10 @@ class CapsuleOverlay(
         if (buttons.isNotEmpty()) into.addView(buttonRow(buttons, card.kind))
     }
 
-    private fun selectedTab(card: CapsuleEvent) = (tabSelection[slot(card.kind)] ?: 0).coerceIn(0, card.sections.lastIndex)
+    private fun selectedTab(card: CapsuleEvent): Int {
+        val chosen = tabSelection[DeckCard.pageOf(card.kind)] ?: return 0
+        return card.sections.indexOfFirst { it.kind == chosen }.coerceAtLeast(0)
+    }
 
     /** The row of tab names at the top of a page: the open one is a lighter pill, the others plain text. */
     private fun tabBar(card: CapsuleEvent, shown: Int) = LinearLayout(context).apply {
@@ -837,7 +851,7 @@ class CapsuleOverlay(
                 if (i == shown) background = GradientDrawable().apply { setColor(wash(18, 0)); cornerRadius = dp(DECK_TAB_DP).toFloat() - dp(3) }
                 isClickable = true
                 setOnClickListener {
-                    tabSelection[slot(card.kind) ?: return@setOnClickListener] = i
+                    tabSelection[DeckCard.pageOf(card.kind)] = card.sections[i].kind
                     restartDeckTimer()
                     haptic()
                     renderDeck(Anim.UPDATE)

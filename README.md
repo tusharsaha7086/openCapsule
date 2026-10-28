@@ -97,7 +97,9 @@ you tap its name at the top: *Settings* and *Apps* (quick settings and the launc
 timer and the stopwatch), *Clipboard*, *Notes* and *Calendar*, and *Battery* and *Phone* (battery and phone stats). A song
 and its volume sit one above the other on one page. A page shows only the cards that are on and have something to show,
 and a card whose page-mates are off stays on a page of its own. The switches and order under Dynamic cards still apply to
-each card; a page sits where its first card is in that order.
+each card: a page sits where its first card is in that order, and its tabs follow that order too, so moving a card down
+moves its tab to the right. Each time the deck opens, a page starts on its first tab (a running timer or song opens on its
+own tab instead); the tab you pick stays only while the deck is open.
 
 **Deck look**
 
