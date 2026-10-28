@@ -43,6 +43,11 @@ object OverlayHost {
     /** Types [text] into the field being typed in, through the accessibility service. False when it is off or no field has focus. */
     fun paste(text: String) = (service as? OverlayHostService)?.paste(text) == true
 
+    /** Records what was copied last, through the accessibility service, and calls [done] once it was read. Does nothing when the service is off. */
+    fun captureClipboard(done: () -> Unit) {
+        (service as? OverlayHostService)?.captureClip(done)
+    }
+
     /** Whether the accessibility service is connected, i.e. capsules draw above the status bar. */
     val isAboveStatusBar get() = service != null
 

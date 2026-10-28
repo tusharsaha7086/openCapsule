@@ -4,7 +4,11 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -21,6 +25,43 @@ class OverlayHostService : AccessibilityService() {
     override fun onServiceConnected() {
         OverlayHost.attach(this)
         stopWatching = ClipboardHistory.watch(this)
+    }
+
+    /**
+     * Adds what was copied last to the clipboard history. Android tells a background app nothing about a copy and hands it
+     * the clip only while it has window focus, so this is done when the deck opens: the read is tried as it is and, if
+     * refused, again while an invisible 1 px window holds focus for a moment. [onDone] runs once the clip was read.
+     */
+    fun captureClip(onDone: () -> Unit) {
+        val manager = getSystemService(ClipboardManager::class.java) ?: return
+        if (ClipboardHistory.record(this, manager)) {
+            onDone()
+            return
+        }
+        val windows = getSystemService(WindowManager::class.java) ?: return
+        var finished = false
+        lateinit var probe: View
+        fun finish(read: Boolean) {
+            if (finished) return
+            finished = true
+            if (read && ClipboardHistory.record(this, manager)) onDone()
+            // Not from inside the focus callback: the window is still being told about its focus, and taking it away
+            // there crashes the app. One message later it is safe.
+            probe.post { runCatching { windows.removeView(probe) } }
+        }
+        probe = object : View(this) {
+            override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+                super.onWindowFocusChanged(hasWindowFocus)
+                if (hasWindowFocus) finish(read = true)
+            }
+        }
+        val params = WindowManager.LayoutParams(
+            1, 1, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        if (runCatching { windows.addView(probe, params) }.isFailure) return
+        probe.postDelayed({ finish(read = false) }, FOCUS_TIMEOUT_MS)
     }
 
     /**
@@ -73,5 +114,9 @@ class OverlayHostService : AccessibilityService() {
         stopWatching?.invoke()
         stopWatching = null
         OverlayHost.detach(this)
+    }
+
+    private companion object {
+        const val FOCUS_TIMEOUT_MS = 600L
     }
 }

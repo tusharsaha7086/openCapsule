@@ -438,6 +438,18 @@ class CapsuleOverlay(
         measureDeck()
         // From the pill when nothing is showing, otherwise out of the capsule that is on screen.
         renderDeck(if (previous == null) Anim.GROW else Anim.MORPH, previous)
+        captureClipboard()
+    }
+
+    /**
+     * Android gives a background app no word of a copy, so the clipboard history is topped up when the deck opens: what was
+     * copied last is read and, if it is new, the clipboard card redraws with it. Only when a clipboard card is in the deck.
+     */
+    private fun captureClipboard() {
+        if (deck.none { card -> card.kind == Kind.CLIPBOARD || card.sections.any { it.kind == Kind.CLIPBOARD } }) return
+        handler.postDelayed({
+            if (deckOpen) OverlayHost.captureClipboard { handler.post { if (deckOpen) refreshDeck(Kind.CLIPBOARD) } }
+        }, CAPTURE_DELAY_MS)
     }
 
     /**
@@ -1488,6 +1500,7 @@ class CapsuleOverlay(
         private const val DECK_BADGE_DP = 40
         private const val DECK_BAR_DP = 8
         private const val DECK_TAB_DP = 20
+        private const val CAPTURE_DELAY_MS = 250L
         private const val DECK_BUTTON_DP = 44
         private const val DECK_PRIMARY_DP = 58
         private const val RING_DP = 130

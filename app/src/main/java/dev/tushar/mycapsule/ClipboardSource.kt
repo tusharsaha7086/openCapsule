@@ -59,14 +59,19 @@ object ClipboardHistory {
         return { manager.removePrimaryClipChangedListener(listener) }
     }
 
-    private fun record(context: Context, manager: ClipboardManager) {
-        if (!Prefs(context).clipboardRecording) return
-        val clip = runCatching { manager.primaryClip }.getOrNull() ?: return
-        if (clip.description?.extras?.getBoolean(EXTRA_IS_SENSITIVE) == true) return
-        val text = clip.getItemAt(0)?.coerceToText(context)?.toString() ?: return
+    /**
+     * Adds what is on the clipboard now to the history. False when Android would not hand over the clip (it only does so to
+     * the app that has window focus), so the caller can try again with focus; true once it was read, whatever it held.
+     */
+    fun record(context: Context, manager: ClipboardManager): Boolean {
+        if (!Prefs(context).clipboardRecording) return true
+        val clip = runCatching { manager.primaryClip }.getOrNull() ?: return false
+        if (clip.description?.extras?.getBoolean(EXTRA_IS_SENSITIVE) == true) return true
+        val text = clip.getItemAt(0)?.coerceToText(context)?.toString() ?: return true
         // What we put on the clipboard ourselves, to paste it, is not a new copy.
-        if (text == ignored && SystemClock.uptimeMillis() < ignoredUntil) return
+        if (text == ignored && SystemClock.uptimeMillis() < ignoredUntil) return true
         add(context, text)
+        return true
     }
 
     /**

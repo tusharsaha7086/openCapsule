@@ -262,11 +262,14 @@ only be painted inside its own shape, so drop shadows are the Theme "Shadow" set
   - **Display over other apps** (needed to draw capsules).
   - **Notification access** (needed to read notifications and media sessions).
   - **Accessibility service** (optional). When on, capsules draw above the status bar and over the camera.
-    Without it they sit below the status bar. The service also powers the Clipboard card: it hears each copy
-    and, when you tap an item, types it into the text field that has the cursor. It receives no events and does
-    not read the rest of the screen; the only thing it looks at is which field has the cursor, at the moment
-    you tap an item. Copies are kept on the phone only (last 30, text only, anything an app marks as sensitive
-    is skipped) and can be switched off or cleared under Dynamic cards.
+    Without it they sit below the status bar. The service also powers the Clipboard card. Android (10 and later)
+    gives the clipboard only to the app in front and tells a background app nothing about a copy, so the history is
+    topped up when you open the deck: the service takes window focus for a moment with an invisible 1 px window and
+    reads what you copied last. Only the latest copy since the deck was last opened is caught, and the keyboard or
+    selection may flicker for an instant. When you tap an item the service types it into the text field that has
+    the cursor. It receives no events and does not read the rest of the screen; the only thing it looks at is which
+    field has the cursor, at the moment you tap an item. Copies are kept on the phone only (last 30, text only,
+    anything an app marks as sensitive is skipped) and can be switched off or cleared under Dynamic cards.
 - Sideloaded apps need **Allow restricted settings** (App info, then the menu) before Android lets you turn on
   an accessibility service.
 - Note: force-stopping the app makes Android switch the accessibility service off. Turn it on again.
