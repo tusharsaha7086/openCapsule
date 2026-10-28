@@ -1,11 +1,16 @@
 package dev.tushar.mycapsule
 
+import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.random.Random
 
-/** What the pet is standing on, hanging from, flying through or held by. */
-enum class PetSurface { FLOOR, LEFT_WALL, RIGHT_WALL, CEILING, AIR, HELD }
+/**
+ * What the pet is standing on, hanging from, flying through or held by. A [PLATFORM] is a ledge somewhere on the screen (the
+ * top edge of the capsule or the deck while one is open) that the pet can land on and walk along.
+ */
+enum class PetSurface { FLOOR, LEFT_WALL, RIGHT_WALL, CEILING, PLATFORM, AIR, HELD }
 
-enum class PetAction { IDLE, SIT, SLEEP, WALK, HAPPY, FALL, GRAB }
+enum class PetAction { IDLE, SIT, SLEEP, WALK, HAPPY, FALL, GRAB, DANCE, TIRED, YAWN, ALERT, PURR, DIZZY }
 
 /** How to draw the pet right now: which animation, turned how far, and whether mirrored first. */
 class PetPose(val animation: String, val rotation: Float, val mirror: Boolean)
@@ -13,7 +18,10 @@ class PetPose(val animation: String, val rotation: Float, val mirror: Boolean)
 /**
  * What the pet does, with no Android in it: where it is, what it is doing, and when it changes its mind. It walks along the
  * bottom of the screen, climbs the side edges, crosses the top and drops back down, naps, sits, and falls when it is let go.
- * [x] and [y] are the top left of the pet's square in screen pixels; the overlay moves its window there.
+ * It can be thrown and bounces off the edges, lands on a ledge such as the open deck, purrs when it is held still, gets dizzy
+ * when it is shaken or lands hard, and its mood follows the phone: it dances to music, drags about when the battery is low,
+ * naps through a focus session and jumps at an alert. [x] and [y] are the top left of the pet's square in screen pixels; the
+ * overlay moves its window there.
  *
  * The art faces right with its feet at the bottom. Climbing turns that art a quarter turn so its feet are on the wall (and
  * half a turn on the ceiling), mirrored when it has to face the other way, so the pack needs no climbing frames of its own.
@@ -43,13 +51,32 @@ class PetBrain(private val random: Random = Random.Default) {
     /** +1 is towards larger x on the floor and ceiling, and downwards on a wall; -1 is the other way (up on a wall). */
     private var dir = 1
 
-    /** Which way it faces while on the floor or in the air: +1 right, -1 left. */
+    /** Which way it faces while on the floor, a ledge or in the air: +1 right, -1 left. */
     private var facing = 1
     private var wait = 1f
+    private var vx = 0f
     private var vy = 0f
 
     /** True while it hangs at the top of a wall for a moment before it lets go. */
     private var hanging = false
+
+    /** True from the moment it is thrown until it lands: it spins in the air and gets dizzy on landing. */
+    private var thrown = false
+    private var spin = 0f
+    private var spinSpeed = 0f
+
+    // The ledge: its left and right ends and its top, in screen pixels.
+    private var hasPlatform = false
+    private var platformLeft = 0f
+    private var platformRight = 0f
+    private var platformTop = 0f
+
+    // What the phone is doing.
+    private var music = false
+    private var focus = false
+    private var lowBattery = false
+    private var charging = false
+    private var moodKnown = false
 
     private val minX get() = -edge
     private val maxX get() = width - size + edge
@@ -59,8 +86,15 @@ class PetBrain(private val random: Random = Random.Default) {
     private val rightX get() = width - size + foot
     private val minY get() = top - edge
     private val maxY get() = floor - size + edge
-    private val speed get() = size * RUN_SIZES_PER_SECOND
-    private val climbSpeed get() = size * CLIMB_SIZES_PER_SECOND
+
+    /** In the air it can go all the way to the top of the screen, over the status bar, so it can land on a ledge near the top. */
+    private val airMinY get() = -edge
+    private val ledgeY get() = platformTop - size + foot
+    private val ledgeMinX get() = platformLeft - edge
+    private val ledgeMaxX get() = maxOf(platformRight - size + edge, ledgeMinX)
+    private val pace get() = if (lowBattery) TIRED_PACE else 1f
+    private val speed get() = size * RUN_SIZES_PER_SECOND * pace
+    private val climbSpeed get() = size * CLIMB_SIZES_PER_SECOND * pace
 
     /** Tells the pet how big the screen is: its [width], the pixel row of the [floor] and of the [top], its [size] and [footShare]. */
     fun setWorld(width: Int, floor: Int, top: Int, size: Int, footShare: Float) {
@@ -88,8 +122,42 @@ class PetBrain(private val random: Random = Random.Default) {
             PetSurface.CEILING -> { x = x.coerceIn(minX, maxX); y = ceilY }
             PetSurface.LEFT_WALL -> { x = leftX; y = y.coerceIn(minY, maxY) }
             PetSurface.RIGHT_WALL -> { x = rightX; y = y.coerceIn(minY, maxY) }
-            PetSurface.AIR, PetSurface.HELD -> { x = x.coerceIn(minX, maxX); y = y.coerceIn(minY, floorY) }
+            PetSurface.PLATFORM -> if (hasPlatform) { x = x.coerceIn(ledgeMinX, ledgeMaxX); y = ledgeY }
+            PetSurface.AIR, PetSurface.HELD -> { x = x.coerceIn(minX, maxX); y = y.coerceIn(airMinY, floorY) }
         }
+    }
+
+    /** A ledge is on the screen: its [left] and [right] ends and its [top]. Call again whenever it moves. */
+    fun setPlatform(left: Float, top: Float, right: Float) {
+        hasPlatform = true
+        platformLeft = left
+        platformRight = right
+        platformTop = top
+        if (surface == PetSurface.PLATFORM) place()
+    }
+
+    /** The ledge is gone: a pet standing on it falls. */
+    fun clearPlatform() {
+        if (!hasPlatform) return
+        hasPlatform = false
+        if (surface == PetSurface.PLATFORM) startFall()
+    }
+
+    /**
+     * How the phone is doing: music playing, a focus session running, the battery low, the charger in. A change (the charger
+     * going in or out) is something the pet notices; the rest only changes what it likes to do next.
+     */
+    fun setMood(music: Boolean, focus: Boolean, lowBattery: Boolean, charging: Boolean) {
+        if (moodKnown) {
+            if (charging && !this.charging) cheer()
+            if (!charging && this.charging) yawn()
+        }
+        this.music = music
+        this.focus = focus
+        this.lowBattery = lowBattery
+        this.charging = charging
+        moodKnown = true
+        if (!music && action == PetAction.DANCE) rest(PetAction.IDLE, 0.5f)
     }
 
     fun tick(dt: Float) {
@@ -99,10 +167,30 @@ class PetBrain(private val random: Random = Random.Default) {
             PetSurface.HELD -> Unit
             PetSurface.AIR -> fall(dt)
             else -> {
+                if (surface == PetSurface.PLATFORM) {
+                    if (!hasPlatform) {
+                        startFall()
+                        return
+                    }
+                    place()
+                }
+                if (surface == PetSurface.CEILING && hasPlatform) maybeDropOnto(dt)
                 wait -= dt
                 if (action == PetAction.WALK) move(dt)
                 if (wait <= 0f) decide()
             }
+        }
+    }
+
+    /** From the ceiling above a ledge, the pet sometimes lets go and lands on it. */
+    private fun maybeDropOnto(dt: Float) {
+        val centerX = x + size / 2
+        if (action != PetAction.HAPPY && action != PetAction.ALERT && centerX in platformLeft..platformRight &&
+            ledgeY >= airMinY && random.nextFloat() < dt * DROP_PER_SECOND
+        ) {
+            // The ledge is only a little way below the ceiling: it hops up a touch so that it lands on the ledge's top.
+            startFall()
+            y = ledgeY - size * HOP_SIZES
         }
     }
 
@@ -114,32 +202,56 @@ class PetBrain(private val random: Random = Random.Default) {
             startFall()
             return
         }
+        if (focus) {
+            decideQuietly()
+            return
+        }
         val roll = random.nextInt(PERCENT)
         when (surface) {
             PetSurface.FLOOR -> when {
+                music && roll < 50 -> rest(PetAction.DANCE, seconds(5f, 9f))
                 roll < 55 -> walk(randomDir(), seconds(2f, 6f))
                 roll < 75 -> rest(PetAction.SIT, seconds(3f, 6f))
                 roll < 85 -> rest(PetAction.SLEEP, seconds(8f, 14f))
-                else -> rest(PetAction.IDLE, seconds(1.5f, 3.5f))
+                else -> rest(idle(), seconds(1.5f, 3.5f))
+            }
+            PetSurface.PLATFORM -> when {
+                music && roll < 50 -> rest(PetAction.DANCE, seconds(5f, 9f))
+                roll < 35 -> walk(randomDir(), seconds(1.5f, 4f))
+                roll < 80 -> rest(PetAction.SIT, seconds(3f, 7f))
+                else -> rest(idle(), seconds(1.5f, 3.5f))
             }
             PetSurface.LEFT_WALL, PetSurface.RIGHT_WALL -> when {
                 roll < 65 -> walk(-1, seconds(1.5f, 4.5f))
                 roll < 80 -> walk(1, seconds(1f, 3f))
-                else -> rest(PetAction.IDLE, seconds(1f, 3f))
+                else -> rest(idle(), seconds(1f, 3f))
             }
             PetSurface.CEILING -> when {
                 roll < 15 -> startFall()
                 roll < 75 -> walk(randomDir(), seconds(1.5f, 4.5f))
-                else -> rest(PetAction.IDLE, seconds(1f, 3f))
+                else -> rest(idle(), seconds(1f, 3f))
             }
             else -> Unit
         }
     }
 
+    /** During a focus session the pet keeps quiet: it comes down and sleeps or sits where it is. */
+    private fun decideQuietly() {
+        when (surface) {
+            PetSurface.FLOOR, PetSurface.PLATFORM ->
+                if (random.nextInt(PERCENT) < 70) rest(PetAction.SLEEP, seconds(20f, 40f)) else rest(PetAction.SIT, seconds(10f, 20f))
+            PetSurface.LEFT_WALL, PetSurface.RIGHT_WALL, PetSurface.CEILING -> startFall()
+            else -> Unit
+        }
+    }
+
+    /** Standing about: worn out while the battery is low. */
+    private fun idle() = if (lowBattery) PetAction.TIRED else PetAction.IDLE
+
     private fun walk(direction: Int, secs: Float) {
         action = PetAction.WALK
         dir = direction
-        if (surface == PetSurface.FLOOR) facing = direction
+        if (surface == PetSurface.FLOOR || surface == PetSurface.PLATFORM) facing = direction
         wait = secs
     }
 
@@ -167,6 +279,17 @@ class PetBrain(private val random: Random = Random.Default) {
                     atFloorEnd(left = false)
                 }
             }
+            PetSurface.PLATFORM -> {
+                x += dir * speed * dt
+                facing = dir
+                if (x <= ledgeMinX) {
+                    x = ledgeMinX
+                    atLedgeEnd(left = true)
+                } else if (x >= ledgeMaxX) {
+                    x = ledgeMaxX
+                    atLedgeEnd(left = false)
+                }
+            }
             PetSurface.CEILING -> {
                 x += dir * speed * dt
                 if (x <= minX) {
@@ -187,7 +310,7 @@ class PetBrain(private val random: Random = Random.Default) {
                     surface = PetSurface.FLOOR
                     y = floorY
                     facing = if (left) 1 else -1
-                    rest(PetAction.IDLE, seconds(0.5f, 1.5f))
+                    rest(idle(), seconds(0.5f, 1.5f))
                 }
             }
             else -> Unit
@@ -198,6 +321,17 @@ class PetBrain(private val random: Random = Random.Default) {
     private fun atFloorEnd(left: Boolean) {
         if (random.nextInt(PERCENT) < 55) {
             toWall(left, down = false)
+        } else {
+            dir = if (left) 1 else -1
+            facing = dir
+        }
+    }
+
+    /** At the end of a ledge it sometimes steps off, and otherwise turns round. */
+    private fun atLedgeEnd(left: Boolean) {
+        if (random.nextInt(PERCENT) < 40) {
+            facing = if (left) -1 else 1
+            startFall()
         } else {
             dir = if (left) 1 else -1
             facing = dir
@@ -222,7 +356,7 @@ class PetBrain(private val random: Random = Random.Default) {
             walk(if (left) 1 else -1, seconds(1.5f, 4f))
         } else {
             hanging = true
-            rest(PetAction.IDLE, seconds(1.2f, 2.2f))
+            rest(idle(), seconds(1.2f, 2.2f))
         }
     }
 
@@ -231,19 +365,63 @@ class PetBrain(private val random: Random = Random.Default) {
         if (surface == PetSurface.LEFT_WALL) facing = 1 else if (surface == PetSurface.RIGHT_WALL) facing = -1
         surface = PetSurface.AIR
         action = PetAction.FALL
+        vx = 0f
         vy = 0f
+        thrown = false
     }
 
+    /** In the air: gravity, bouncing off the sides and top when thrown, landing on a ledge or the floor. */
     private fun fall(dt: Float) {
+        val before = y
         vy += size * GRAVITY_SIZES_PER_SECOND_SQUARED * dt
+        x += vx * dt
         y += vy * dt
-        x = x.coerceIn(minX, maxX)
+        if (thrown) spin += spinSpeed * dt
+        if (x < minX) {
+            x = minX
+            vx = abs(vx) * SIDE_BOUNCE
+            spinSpeed = -spinSpeed * 0.6f
+        } else if (x > maxX) {
+            x = maxX
+            vx = -abs(vx) * SIDE_BOUNCE
+            spinSpeed = -spinSpeed * 0.6f
+        }
+        if (y < airMinY) {
+            y = airMinY
+            vy = abs(vy) * TOP_BOUNCE
+        }
+        if (vx != 0f) facing = if (vx > 0f) 1 else -1
+        if (hasPlatform && vy > 0f) {
+            val feetBefore = before + size - foot
+            val feetNow = y + size - foot
+            val centerX = x + size / 2
+            if (centerX in platformLeft..platformRight && feetBefore <= platformTop + 1f && feetNow >= platformTop) {
+                y = ledgeY
+                land(PetSurface.PLATFORM)
+                return
+            }
+        }
         if (y >= floorY) {
             y = floorY
-            vy = 0f
-            surface = PetSurface.FLOOR
-            rest(PetAction.IDLE, seconds(0.5f, 1.2f))
+            if (vy > size * BOUNCE_SPEED_SIZES) {
+                vy = -vy * FLOOR_BOUNCE
+                vx *= FLOOR_FRICTION
+                spinSpeed *= 0.5f
+            } else {
+                land(PetSurface.FLOOR)
+            }
         }
+    }
+
+    private fun land(on: PetSurface) {
+        val wasThrown = thrown
+        surface = on
+        vx = 0f
+        vy = 0f
+        thrown = false
+        spin = 0f
+        spinSpeed = 0f
+        if (wasThrown) rest(PetAction.DIZZY, DIZZY_SECONDS) else rest(idle(), seconds(0.5f, 1.2f))
     }
 
     // --- touch ---
@@ -251,6 +429,7 @@ class PetBrain(private val random: Random = Random.Default) {
     /** A finger has picked the pet up. */
     fun grab() {
         hanging = false
+        thrown = false
         surface = PetSurface.HELD
         action = PetAction.GRAB
     }
@@ -262,12 +441,25 @@ class PetBrain(private val random: Random = Random.Default) {
         y = centerY - size / 2
     }
 
-    /** The finger let go: near a side or the top the pet grabs on to it, anywhere else it falls. */
-    fun release() {
+    /**
+     * The finger let go, moving at ([velocityX], [velocityY]) pixels a second. Fast, the pet is thrown; slow, it grabs on to a
+     * side or the top if it is near one, and otherwise falls.
+     */
+    fun release(velocityX: Float = 0f, velocityY: Float = 0f) {
         if (surface != PetSurface.HELD) return
+        if (hypot(velocityX, velocityY) > size * THROW_SIZES_PER_SECOND) {
+            throwIt(velocityX, velocityY)
+            return
+        }
         val centerX = x + size / 2
         val centerY = y + size / 2
         val grip = size * GRIP_SIZES
+        // Let go just above a ledge (the open deck) and the pet drops onto it, instead of clinging to the ceiling.
+        if (hasPlatform && centerX in platformLeft..platformRight && y + size - foot <= platformTop + size * LEDGE_REACH_SIZES) {
+            y = minOf(y, ledgeY - size * HOP_SIZES)
+            startFall()
+            return
+        }
         when {
             centerX < grip -> cling(PetSurface.LEFT_WALL)
             centerX > width - grip -> cling(PetSurface.RIGHT_WALL)
@@ -276,18 +468,59 @@ class PetBrain(private val random: Random = Random.Default) {
         }
     }
 
+    private fun throwIt(velocityX: Float, velocityY: Float) {
+        val limit = size * MAX_THROW_SIZES_PER_SECOND
+        surface = PetSurface.AIR
+        action = PetAction.FALL
+        vx = velocityX.coerceIn(-limit, limit)
+        vy = velocityY.coerceIn(-limit, limit)
+        thrown = true
+        spin = 0f
+        spinSpeed = (vx / size * SPIN_DEGREES_PER_SIZE).coerceIn(-MAX_SPIN, MAX_SPIN)
+        if (vx != 0f) facing = if (vx > 0f) 1 else -1
+    }
+
     private fun cling(to: PetSurface) {
         surface = to
         dir = if (to == PetSurface.CEILING) 1 else -1
         place()
-        rest(PetAction.IDLE, 1f)
+        rest(idle(), 1f)
     }
 
-    /** A pat, or something to react to (a notification): it perks up for a moment. */
+    /** A pat: it perks up for a moment. */
     fun cheer() {
         if (surface == PetSurface.AIR || surface == PetSurface.HELD) return
         hanging = false
         rest(PetAction.HAPPY, CHEER_SECONDS)
+    }
+
+    /** Held still under a finger, or let go: it purrs while [on], and settles into a happy moment when the finger lifts. */
+    fun purr(on: Boolean) {
+        if (surface == PetSurface.AIR || surface == PetSurface.HELD) return
+        if (on) {
+            hanging = false
+            rest(PetAction.PURR, PURR_HOLD_SECONDS)
+        } else if (action == PetAction.PURR) {
+            rest(PetAction.HAPPY, 1.2f)
+        }
+    }
+
+    /** Something needs attention (a notification, a call, a finished timer): it sits up and shows it, for [seconds]. */
+    fun alert(seconds: Float) {
+        if (surface == PetSurface.AIR || surface == PetSurface.HELD) return
+        hanging = false
+        rest(PetAction.ALERT, seconds)
+    }
+
+    /** The phone was shaken: the pet is left dizzy. */
+    fun dizzy() {
+        if (surface == PetSurface.AIR || surface == PetSurface.HELD) return
+        hanging = false
+        rest(PetAction.DIZZY, DIZZY_SECONDS)
+    }
+
+    private fun yawn() {
+        if (surface == PetSurface.FLOOR || surface == PetSurface.PLATFORM) rest(PetAction.YAWN, YAWN_SECONDS)
     }
 
     // --- drawing ---
@@ -301,11 +534,18 @@ class PetBrain(private val random: Random = Random.Default) {
             PetAction.HAPPY -> "happy"
             PetAction.FALL -> "fall"
             PetAction.GRAB -> "grab"
+            PetAction.DANCE -> "dance"
+            PetAction.TIRED -> "tired"
+            PetAction.YAWN -> "yawn"
+            PetAction.ALERT -> "alert"
+            PetAction.PURR -> "purr"
+            PetAction.DIZZY -> "dizzy"
         }
         val rotation = when (surface) {
             PetSurface.LEFT_WALL -> 90f
             PetSurface.RIGHT_WALL -> -90f
             PetSurface.CEILING -> 180f
+            PetSurface.AIR -> if (thrown) spin else 0f
             else -> 0f
         }
         val mirror = when (surface) {
@@ -321,9 +561,25 @@ class PetBrain(private val random: Random = Random.Default) {
         const val PERCENT = 100
         const val RUN_SIZES_PER_SECOND = 0.9f
         const val CLIMB_SIZES_PER_SECOND = 0.7f
+        const val TIRED_PACE = 0.5f
         const val GRAVITY_SIZES_PER_SECOND_SQUARED = 14f
         const val EDGE_SHARE = 3f / 32f
         const val GRIP_SIZES = 0.7f
         const val CHEER_SECONDS = 2.5f
+        const val PURR_HOLD_SECONDS = 3600f
+        const val DIZZY_SECONDS = 2.5f
+        const val YAWN_SECONDS = 1.8f
+        const val DROP_PER_SECOND = 0.7f
+        const val HOP_SIZES = 0.1f
+        const val LEDGE_REACH_SIZES = 0.35f
+        const val THROW_SIZES_PER_SECOND = 4f
+        const val MAX_THROW_SIZES_PER_SECOND = 30f
+        const val SPIN_DEGREES_PER_SIZE = 60f
+        const val MAX_SPIN = 900f
+        const val SIDE_BOUNCE = 0.7f
+        const val TOP_BOUNCE = 0.5f
+        const val FLOOR_BOUNCE = 0.45f
+        const val FLOOR_FRICTION = 0.7f
+        const val BOUNCE_SPEED_SIZES = 3f
     }
 }

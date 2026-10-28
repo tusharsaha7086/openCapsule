@@ -107,17 +107,29 @@ own tab instead); the tab you pick stays only while the deck is open.
 
 Under **Customize, Screen pet** (off by default) a small pixel-art cat lives on your screen, over the home screen and every
 app. It walks along the bottom of the screen, sits, naps, climbs the left and right edges, crosses the top, hangs for a
-moment and drops back down. Tap it to pat it (it perks up), drag it to pick it up: let go in the air and it falls, let go
-at an edge or the top and it grabs on. It also perks up when a notification or a call arrives. *Pet size* is small,
-medium or large. Only the pet's own square takes touches, so everything around it still reaches the app underneath. It
+moment and drops back down.
+
+*With your fingers:* tap it to pat it (it perks up); hold a finger on it and it purrs, with soft taps you can feel; drag it
+to pick it up: let go slowly and it falls (or grabs on at an edge or the top), flick it and it is thrown, spins, bounces off
+the edges and lands dizzy. Shake the phone and it gets dizzy too. Touching the pet never closes an open deck.
+
+*With the capsule:* the top edge of an open capsule or deck is a ledge. Drop the pet just above it, or let it fall from
+the ceiling over it, and it lands, sits and walks along the edge (and sometimes steps off) until the capsule closes.
+
+*With your phone* (*React to my phone*, on by default): it dances to music (a note floats over its head), drags about at half
+speed with a sweat drop when the battery is low, perks up when the charger goes in and yawns when it comes out, naps through
+a Pomodoro focus part, and sits up with a "!" for a notification, a call, a timer running out or a focus part ending.
+
+*Pet size* is small, medium or large. Only the pet's own square takes touches, so everything around it still reaches the app underneath. It
 uses the capsule's window layer (above the status bar with the accessibility service, a normal overlay otherwise), runs
 at about 30 frames a second and stops while the screen is off. It stays on the screen's edges: it does not walk on other
 apps' windows or buttons, which would need the accessibility service to read window positions.
 
 The cat is a *pet pack*: `assets/pets/<name>/sheet.png` (one row per animation, one square cell per frame, the pet
 facing right with its feet at the bottom) and `pet.json` (`{"name": "Cat", "frame": 32, "animations": {"walk": {"row": 3,
-"frames": 4, "fps": 8}, ...}}`). The animations used are idle, sit, sleep, walk, happy, fall and grab; the app mirrors the
-pet to face left and turns it a quarter turn to climb, so no climbing art is needed. `tools/make_cat.py` draws the default
+"frames": 4, "fps": 8}, ...}}`). The animations used are idle, sit, sleep, walk, happy, fall, grab, dance, tired, yawn,
+alert, purr and dizzy (one that is missing falls back to idle); the app mirrors the pet to face left, turns it a quarter turn
+to climb and spins it when it is thrown, so no climbing or flying art is needed. `tools/make_cat.py` draws the default
 cat from code (`python tools/make_cat.py`, no libraries needed) and is a starting point for another pet.
 
 **Deck look**

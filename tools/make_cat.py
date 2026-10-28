@@ -21,6 +21,8 @@ E = (0x1A, 0x1A, 0x1A, 255)   # eyes
 H = (0xFF, 0xFF, 0xFF, 255)   # shine
 Z = (0x7F, 0xB2, 0xE5, 255)   # sleep letters
 R = (0xE8, 0x4A, 0x5F, 255)   # heart
+Y = (0xFF, 0xD8, 0x4A, 255)   # stars
+M = (0x5A, 0x2A, 0x22, 255)   # open mouth
 
 
 class Cell:
@@ -98,6 +100,9 @@ def standing(bob=0, legs=None, tail="up", eyes="open", happy=False, leg_len=6, s
     elif eyes == "wide":
         c.rect(25, 11 + b, 26, 13 + b, E)
         c.px(25, 11 + b, H)
+    elif eyes == "x":
+        for ex, ey in ((25, 12), (27, 12), (26, 13), (25, 14), (27, 14)):
+            c.px(ex, ey + b, E)
     if happy:
         c.px(28, 16 + b, E)
         c.px(29, 16 + b, E)
@@ -201,6 +206,75 @@ def grabbed():
     return standing(tail="down", eyes="wide", leg_len=4, shift=-2)
 
 
+def dots(c, pts, color):
+    for x, y in pts:
+        c.px(x, y, color)
+
+
+NOTE_A = [(29, 2), (29, 3), (29, 4), (29, 5), (27, 5), (28, 5), (27, 6), (28, 6), (30, 2), (31, 3)]
+NOTE_B = [(30, 3), (30, 4), (30, 5), (30, 6), (28, 6), (29, 6), (28, 7), (29, 7), (31, 3)]
+
+
+def dancing(f):
+    front = [(9, 0, 0), (12, 0, 0), (18, 0, 0), (21, 0, 0)]
+    if f == 0:
+        c = standing(bob=0, legs=[(9, 0, 0), (12, 0, 0), (18, 3, 0), (21, 3, 0)], tail="up", eyes="happy", happy=True)
+        dots(c, NOTE_A, Z)
+    elif f == 1:
+        c = standing(bob=1, legs=front, tail="wave", eyes="happy", happy=True)
+    elif f == 2:
+        c = standing(bob=0, legs=[(9, 3, 0), (12, 3, 0), (18, 0, 0), (21, 0, 0)], tail="up", eyes="happy", happy=True)
+        dots(c, NOTE_B, Z)
+    else:
+        c = standing(bob=1, legs=front, tail="wave", eyes="happy", happy=True)
+    return c
+
+
+def tired(f):
+    c = standing(bob=1, tail="down", eyes="blink" if f == 0 else "open")
+    if f == 1:
+        c.rect(25, 13 + 1, 26, 13 + 1, E)
+        c.px(26, 12 + 1, None)
+    dots(c, [(30, 9 + f), (30, 10 + f)] if f == 0 else [(30, 11), (30, 12)], Z)
+    return c
+
+
+def yawning(k):
+    c = sitting(blink=True)
+    if k >= 1:
+        c.rect(25, 10, 26, 11 + (k - 1), M)
+        c.px(26, 10, M)
+    return c
+
+
+def alert(f):
+    if f == 0:
+        c = standing(eyes="wide", tail="up")
+    else:
+        c = standing(eyes="wide", tail="up", leg_len=4, shift=-2)
+    dots(c, [(30, 0), (31, 0), (30, 1), (31, 1), (30, 2), (31, 2), (30, 3), (31, 3), (30, 5), (31, 5), (30, 6), (31, 6)], R)
+    return c
+
+
+def purring(f):
+    c = sitting()
+    # happy closed eyes instead of the open one
+    c.px(23, 7, None)
+    c.px(23, 8, None)
+    for x, y in ((22, 8), (23, 7), (24, 8)):
+        c.px(x, y, E)
+    heart = [(28, 0), (30, 0), (27, 1), (28, 1), (29, 1), (30, 1), (31, 1), (28, 2), (29, 2), (30, 2), (29, 3)]
+    small = [(29, 2), (31, 2), (29, 3), (30, 3), (31, 3), (30, 4)]
+    dots(c, heart if f == 0 else small, R)
+    return c
+
+
+def dizzy(f):
+    c = standing(bob=f, tail="down", eyes="x")
+    dots(c, [(22, 3), (23, 3), (22, 4), (28, 2), (29, 2), (29, 3)] if f == 0 else [(24, 2), (25, 2), (24, 3), (29, 4), (30, 4), (30, 5)], Y)
+    return c
+
+
 def build():
     return [
         ("idle", [standing(), standing(eyes="blink", tail="wave")], 2),
@@ -215,6 +289,12 @@ def build():
         ("happy", [happy_pose(0), happy_pose(1)], 4),
         ("fall", [falling()], 1),
         ("grab", [grabbed()], 1),
+        ("dance", [dancing(0), dancing(1), dancing(2), dancing(3)], 6),
+        ("tired", [tired(0), tired(1)], 2),
+        ("yawn", [yawning(0), yawning(1), yawning(2)], 2),
+        ("alert", [alert(0), alert(1)], 4),
+        ("purr", [purring(0), purring(1)], 3),
+        ("dizzy", [dizzy(0), dizzy(1)], 4),
     ]
 
 

@@ -3,7 +3,9 @@
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
@@ -24,12 +26,13 @@ class CapsuleService : NotificationListenerService() {
     private val media = MediaSource()
     private val flashlight = FlashlightSource()
     private val barcode = BarcodeSource()
+    private val pomodoro = PomodoroSource()
     private val sources: List<CapsuleSource> =
         listOf(
             notifications, media, flashlight, TimerSource(), barcode, GestureReceiver(),
             ChargingSource(), SystemBroadcastSource(), NetworkSource(), HeadphonesSource(), RotationSource(),
             VolumeSource(), StopwatchSource(), ControlsSource(flashlight),
-            ClipboardSource(), NotesSource(), CalendarSource(), BatterySource(), LauncherSource(), PomodoroSource(), StatsSource(),
+            ClipboardSource(), NotesSource(), CalendarSource(), BatterySource(), LauncherSource(), pomodoro, StatsSource(),
         )
 
     private lateinit var prefs: Prefs
@@ -62,8 +65,9 @@ class CapsuleService : NotificationListenerService() {
                 DeckCard.group(cards, order)
             },
             onGesture = ::perform,
+            touchesPet = { x, y -> pet.isAt(x, y) },
         )
-        pet = PetOverlay(this, prefs)
+        pet = PetOverlay(this, prefs, moods = ::petEnvironment, ledge = { overlay.bodyBounds() })
         prefsListener = prefs.listen {
             main.post {
                 overlay.refreshIdle()
@@ -97,7 +101,24 @@ class CapsuleService : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) = notifications.onRemoved(sbn)
 
+    /** What the screen pet takes notice of: music playing, a focus session running, the battery, and the charger. */
+    private fun petEnvironment(): PetEnvironment {
+        val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, 100)?.coerceAtLeast(1) ?: 100
+        val level = (battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, scale) ?: scale) * 100 / scale
+        val plugged = (battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+        val session = pomodoro.card(this)
+        return PetEnvironment(
+            music = media.card(this)?.live == true,
+            focus = session.live && session.text?.startsWith("Focus") == true,
+            lowBattery = !plugged && level <= prefs.lowBatteryPercent,
+            charging = plugged,
+        )
+    }
+
     private fun emit(event: CapsuleEvent) {
+        // A timer running out or a focus part ending matters to the pet whether or not a capsule is shown for it.
+        main.post { pet.observe(event) }
         if (!OverlayHost.canDraw(this) || !prefs.enabled(event.kind)) return
         // Phone events (Wi-Fi, Bluetooth and so on) each have a switch of their own on top of the kind's.
         val system = event.system

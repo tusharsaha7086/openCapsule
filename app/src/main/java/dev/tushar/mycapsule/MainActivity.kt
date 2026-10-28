@@ -1034,6 +1034,9 @@ class MainActivity : AppCompatActivity() {
                 prefs.petEnabled, after = {}) { prefs.petEnabled = it })
             addRow(controlRow(R.drawable.ic_open_with, "Pet size", "How big the pet is on the screen",
                 chips(PetSize.entries, prefs.petSize, PetSize::label) { prefs.petSize = it }))
+            addRow(switchRow(R.drawable.ic_tune, "React to my phone",
+                "It dances to music, drags about when the battery is low, perks up when the charger goes in, naps through a focus session, sits up for a notification, a call or a timer, and gets dizzy when you shake the phone.",
+                prefs.petReacts, after = {}) { prefs.petReacts = it })
         }
         section("Gestures") {
             Gesture.entries.forEach { gesture ->

@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.ClipDrawable
@@ -54,6 +55,8 @@ class CapsuleOverlay(
     private val withIdlePill: Boolean = false,
     private val deckProvider: () -> List<CapsuleEvent> = { emptyList() },
     private val onGesture: (GestureAction) -> Unit = {},
+    /** Whether a touch at a screen point (x, y) is on the screen pet: playing with the pet must not close the deck. */
+    private val touchesPet: (Float, Float) -> Boolean = { _, _ -> false },
 ) {
     /**
      * How a freshly drawn capsule arrives:
@@ -237,6 +240,18 @@ class CapsuleOverlay(
                 render(tray.first(), Anim.UPDATE, previous)
             }
         }
+    }
+
+    /**
+     * Where the capsule or the deck is on the screen, in pixels, or null while only the idle pill shows. The screen pet lands
+     * on its top edge.
+     */
+    fun bodyBounds(): Rect? {
+        val body = (view as? ViewGroup)?.getChildAt(0) ?: return null
+        if (body.width == 0 || body.height == 0) return null
+        val at = IntArray(2)
+        body.getLocationOnScreen(at)
+        return Rect(at[0], at[1], at[0] + body.width, at[1] + body.height)
     }
 
     /** Removes the capsule at once and brings the idle pill back. */
@@ -913,7 +928,7 @@ class CapsuleOverlay(
             // (reported by the window flag below) outside the window altogether. Both mean "outside the deck".
             setOnTouchListener { _, e ->
                 val outside = e.actionMasked == MotionEvent.ACTION_OUTSIDE || e.actionMasked == MotionEvent.ACTION_DOWN
-                if (outside && deckOpen && prefs.closeOnOutsideTap) {
+                if (outside && deckOpen && prefs.closeOnOutsideTap && !touchesPet(e.rawX, e.rawY)) {
                     collapse()
                     true
                 } else {
