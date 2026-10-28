@@ -39,8 +39,12 @@ object ReleaseNotes {
     val items = listOf(
         InfoItem(R.drawable.ic_widgets, "Capsules for what happens on your phone",
             "Notifications, music, calls, navigation, downloads, the timer, a stopwatch, the flashlight, the volume and a saved barcode each get a capsule that grows out of the idle pill."),
+        InfoItem(R.drawable.ic_tune, "A redesigned deck",
+            "Related cards now share a page with tabs: quick settings with the launcher, Pomodoro with the timers, the clipboard with notes and the calendar, and the battery with phone stats. Every page is the same size, and a running timer shows a progress ring. The pages and their order are under Capsule, Dynamic cards."),
+        InfoItem(R.drawable.ic_palette, "Deck colors",
+            "Give the deck its own background and text color for the light and the dark theme, from presets or any color of your own. Icons always match the text."),
         InfoItem(R.drawable.ic_tune, "System events",
-            "Charging, low battery, Wi-Fi, the hotspot, Bluetooth, airplane mode, sound mode, Do Not Disturb, headphones, VPN, auto-rotate and unlocking, each with its own switch. A banner stays until you swipe it up and opens the right settings page."),
+            "Charging, low battery, Wi-Fi, the hotspot, Bluetooth, airplane mode, sound mode, Do Not Disturb, headphones, VPN, auto-rotate and unlocking, each with its own switch. A banner stays until you swipe it up and opens the right settings page, and it closes by itself when that thing is switched off."),
         InfoItem(R.drawable.ic_swap_vert, "Several banners at once",
             "The first stays in the centre; the rest wait at the sides as small icons. Press one to bring it forward."),
         InfoItem(R.drawable.ic_chat, "Chat notifications",
