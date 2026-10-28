@@ -39,6 +39,10 @@ object ReleaseNotes {
     val items = listOf(
         InfoItem(R.drawable.ic_widgets, "Capsules for what happens on your phone",
             "Notifications, music, calls, navigation, downloads, the timer, a stopwatch, the flashlight, the volume and a saved barcode each get a capsule that grows out of the idle pill."),
+        InfoItem(R.drawable.ic_pets, "A pet on your screen",
+            "A small pixel-art cat, dog, monkey or lion that walks, climbs the edges, naps and plays over your home screen and every app. Pat it, hold it to purr, drag it or throw it. It dances to music, gets tired when the battery is low, and sits up for notifications, calls and timers. Under Customize, Screen pet."),
+        InfoItem(R.drawable.ic_open_with, "Let it roam",
+            "Under Where it walks, the pet can wander all over the home screen, or over every app, instead of keeping to the edges."),
         InfoItem(R.drawable.ic_tune, "A redesigned deck",
             "Related cards now share a page with tabs: quick settings with the launcher, Pomodoro with the timers, the clipboard with notes and the calendar, and the battery with phone stats. Every page is the same size, and a running timer shows a progress ring. The pages and their order are under Capsule, Dynamic cards."),
         InfoItem(R.drawable.ic_palette, "Deck colors",
