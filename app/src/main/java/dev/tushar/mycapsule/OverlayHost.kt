@@ -43,6 +43,9 @@ object OverlayHost {
     /** Types [text] into the field being typed in, through the accessibility service. False when it is off or no field has focus. */
     fun paste(text: String) = (service as? OverlayHostService)?.paste(text) == true
 
+    /** The package name of the app in front (nothing else about it), or null when the accessibility service is off or it can't be told. */
+    fun foregroundPackage(): String? = (service as? OverlayHostService)?.foregroundPackage()
+
     /** Records what was copied last, through the accessibility service, and calls [done] once it was read. Does nothing when the service is off. */
     fun captureClipboard(done: () -> Unit) {
         (service as? OverlayHostService)?.captureClip(done)

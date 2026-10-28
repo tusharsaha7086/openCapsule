@@ -24,6 +24,14 @@
         </intent>
     </queries>
 
+    <!-- Lets the screen pet tell which app is the home screen, to roam there. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
@@ -67,7 +68,7 @@ class CapsuleService : NotificationListenerService() {
             onGesture = ::perform,
             touchesPet = { x, y -> pet.isAt(x, y) },
         )
-        pet = PetOverlay(this, prefs, moods = ::petEnvironment, ledge = { overlay.bodyBounds() })
+        pet = PetOverlay(this, prefs, moods = ::petEnvironment, ledge = { overlay.bodyBounds() }, homeInFront = ::homeInFront)
         prefsListener = prefs.listen {
             main.post {
                 overlay.refreshIdle()
@@ -100,6 +101,22 @@ class CapsuleService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) = notifications.onRemoved(sbn)
+
+    private var homePackage: String? = null
+
+    /**
+     * Whether the phone's home screen is the app in front, or null when that can't be told (the accessibility service is off, or
+     * the system is between windows, or the status bar is pulled down). Only the app's name is looked at.
+     */
+    private fun homeInFront(): Boolean? {
+        val front = OverlayHost.foregroundPackage() ?: return null
+        if (front == SYSTEM_UI_PACKAGE) return null
+        val home = homePackage ?: packageManager
+            .resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName
+            ?.also { homePackage = it }
+        return front == home
+    }
 
     /** What the screen pet takes notice of: music playing, a focus session running, the battery, and the charger. */
     private fun petEnvironment(): PetEnvironment {
@@ -167,6 +184,7 @@ class CapsuleService : NotificationListenerService() {
     }
 
     companion object {
+        private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val ACTION_GESTURE = "dev.tushar.mycapsule.GESTURE"
         const val EXTRA_NAME = "name"
 

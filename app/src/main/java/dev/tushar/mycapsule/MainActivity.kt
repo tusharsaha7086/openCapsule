@@ -1034,6 +1034,9 @@ class MainActivity : AppCompatActivity() {
                 prefs.petEnabled, after = {}) { prefs.petEnabled = it })
             addRow(controlRow(R.drawable.ic_pets, "Which pet", "A cat, a dog, a monkey or a lion. Each moves its own way: the dog runs, the monkey climbs, the lion strolls.",
                 chips(PetKind.entries, prefs.petKind, PetKind::label) { prefs.petKind = it }))
+            addRow(controlRow(R.drawable.ic_open_with, "Where it walks",
+                "Edges only keeps it on the screen's edges. Home screen too lets it wander all over the home screen (it needs the accessibility service, and only looks at which app is in front). Everywhere lets it wander over every app.",
+                chips(PetRoam.entries, prefs.petRoam, PetRoam::label) { prefs.petRoam = it }))
             addRow(controlRow(R.drawable.ic_open_with, "Pet size", "How big the pet is on the screen",
                 chips(PetSize.entries, prefs.petSize, PetSize::label) { prefs.petSize = it }))
             addRow(switchRow(R.drawable.ic_tune, "React to my phone",

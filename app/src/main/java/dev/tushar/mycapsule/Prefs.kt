@@ -180,6 +180,11 @@ class Prefs(context: Context) {
         get() = read(PET_SIZE, PetSize.MEDIUM)
         set(v) = write(PET_SIZE, v)
 
+    /** Where the pet walks: only along the screen's edges, around the whole screen on the home screen too, or everywhere. */
+    var petRoam: PetRoam
+        get() = read(PET_ROAM, PetRoam.EDGES)
+        set(v) = write(PET_ROAM, v)
+
     /** Which pet lives on the screen. */
     var petKind: PetKind
         get() = read(PET_KIND, PetKind.CAT)
@@ -516,6 +521,7 @@ class Prefs(context: Context) {
         private const val PET_ENABLED = "pet_enabled"
         private const val PET_SIZE = "pet_size"
         private const val PET_KIND = "pet_kind"
+        private const val PET_ROAM = "pet_roam"
         private const val PET_REACTS = "pet_reacts"
         private const val HAPTICS = "haptics"
         private const val BARCODE_CONTENT = "barcode_content"

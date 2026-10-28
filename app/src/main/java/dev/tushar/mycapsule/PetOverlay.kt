@@ -38,6 +38,13 @@ enum class PetSize(val label: String, val dp: Int) {
     LARGE("Large", 80),
 }
 
+/** Where the pet walks. [HOME] needs the accessibility service, to know when the home screen is in front. */
+enum class PetRoam(val label: String) {
+    EDGES("Edges only"),
+    HOME("Home screen too"),
+    ANYWHERE("Everywhere"),
+}
+
 /** Which pet it is: each is a pack in assets/pets/[id]. */
 enum class PetKind(val label: String, val id: String) {
     CAT("Cat", "cat"),
@@ -69,6 +76,8 @@ class PetOverlay(
     private val prefs: Prefs,
     private val moods: () -> PetEnvironment = { PetEnvironment() },
     private val ledge: () -> Rect? = { null },
+    /** Whether the home screen is in front: null when that can't be told. */
+    private val homeInFront: () -> Boolean? = { null },
 ) {
 
     private val main = Handler(Looper.getMainLooper())
@@ -90,7 +99,10 @@ class PetOverlay(
             val now = SystemClock.uptimeMillis()
             val dt = ((now - lastTick) / MS_PER_SECOND).coerceIn(0f, MAX_STEP_SECONDS)
             lastTick = now
-            if (frame++ % MOOD_EVERY_FRAMES == 0) takeNoticeOfPhone()
+            if (frame++ % MOOD_EVERY_FRAMES == 0) {
+                chooseWhereToWalk()
+                takeNoticeOfPhone()
+            }
             watchLedge()
             brain.tick(dt)
             render()
@@ -228,6 +240,19 @@ class PetOverlay(
     private fun systemBar(name: String): Int {
         val id = context.resources.getIdentifier(name, "dimen", "android")
         return if (id > 0) context.resources.getDimensionPixelSize(id) else 0
+    }
+
+    private var lastHome = false
+
+    /** Once a second: whether the pet roams the whole screen or keeps to the edges, by the setting and, for the home screen, what is in front. */
+    private fun chooseWhereToWalk() {
+        val roam = when (prefs.petRoam) {
+            PetRoam.EDGES -> false
+            PetRoam.ANYWHERE -> true
+            // When it can't be told (a secure screen, the system between windows) it carries on as it was.
+            PetRoam.HOME -> (homeInFront() ?: lastHome).also { lastHome = it }
+        }
+        brain.setRoaming(roam)
     }
 
     /** Once a second: music, a focus session, the battery. With reactions off the pet is just a pet. */

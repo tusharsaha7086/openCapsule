@@ -96,6 +96,12 @@ class OverlayHostService : AccessibilityService() {
         return set
     }
 
+    /**
+     * The package name of the app in front, or null when it can't be told (a secure screen, or the system is between windows).
+     * Only the name is looked at: nothing on the screen is read. The screen pet uses it to roam only on the home screen.
+     */
+    fun foregroundPackage(): String? = runCatching { rootInActiveWindow?.packageName?.toString() }.getOrNull()
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
 
     override fun onInterrupt() = Unit

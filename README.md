@@ -120,6 +120,13 @@ the ceiling over it, and it lands, sits and walks along the edge (and sometimes 
 speed with a sweat drop when the battery is low, perks up when the charger goes in and yawns when it comes out, naps through
 a Pomodoro focus part, and sits up with a "!" for a notification, a call, a timer running out or a focus part ending.
 
+*Where it walks* is *Edges only* (the default), *Home screen too* or *Everywhere*. By default the pet keeps to the screen's
+edges. In the other two it also wanders all over the screen, in the middle, with no gravity: it strolls to a spot, sits,
+naps or dances there, stays where you drop it, and coasts to a stop when you throw it. With *Home screen too* it roams only
+while the home screen is in front and drops back to the edges when you open an app (and roams again when you come back);
+that needs the accessibility service, which then looks at the name of the app in front (the home screen's or another's) and
+nothing else on the screen. *Everywhere* needs nothing extra but lets the pet wander over whatever app you are using.
+
 *Which pet* is a cat, a dog, a monkey or a lion, and each moves its own way: the dog runs faster and climbs less, the monkey
 runs a little faster, climbs quickly and almost always takes the wall, and the lion strolls and rarely climbs. *Pet size* is
 small, medium or large. Only the pet's own square takes touches, so everything around it still reaches the app underneath. It
