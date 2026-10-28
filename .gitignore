@@ -12,3 +12,6 @@ local.properties
 
 # Screen-recording frames used to check the animation
 motion-frames/
+
+# Drawn by tools/make_cat.py each time it runs
+tools/preview.png

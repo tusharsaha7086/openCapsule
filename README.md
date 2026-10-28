@@ -103,6 +103,23 @@ pages** list) apply to each card: a page sits where its first card is in that or
 so moving a card down moves its tab to the right. Each time the deck opens, a page starts on its first tab (a running timer or song opens on its
 own tab instead); the tab you pick stays only while the deck is open.
 
+**Screen pet**
+
+Under **Customize, Screen pet** (off by default) a small pixel-art cat lives on your screen, over the home screen and every
+app. It walks along the bottom of the screen, sits, naps, climbs the left and right edges, crosses the top, hangs for a
+moment and drops back down. Tap it to pat it (it perks up), drag it to pick it up: let go in the air and it falls, let go
+at an edge or the top and it grabs on. It also perks up when a notification or a call arrives. *Pet size* is small,
+medium or large. Only the pet's own square takes touches, so everything around it still reaches the app underneath. It
+uses the capsule's window layer (above the status bar with the accessibility service, a normal overlay otherwise), runs
+at about 30 frames a second and stops while the screen is off. It stays on the screen's edges: it does not walk on other
+apps' windows or buttons, which would need the accessibility service to read window positions.
+
+The cat is a *pet pack*: `assets/pets/<name>/sheet.png` (one row per animation, one square cell per frame, the pet
+facing right with its feet at the bottom) and `pet.json` (`{"name": "Cat", "frame": 32, "animations": {"walk": {"row": 3,
+"frames": 4, "fps": 8}, ...}}`). The animations used are idle, sit, sleep, walk, happy, fall and grab; the app mirrors the
+pet to face left and turns it a quarter turn to climb, so no climbing art is needed. `tools/make_cat.py` draws the default
+cat from code (`python tools/make_cat.py`, no libraries needed) and is a starting point for another pet.
+
 **Deck look**
 
 The expanded deck is a rounder shell (28 dp unless the shape is Square) with the same layout on every card: a round icon, the
@@ -374,6 +391,9 @@ app/src/main/java/dev/tushar/mycapsule/
   ScreenProfile.kt       the four kinds of screen and the position kept for each
   PositionEditorActivity.kt  the drag-to-position editor
   AppExtras.kt           app theme and font, and the Tips and What's new text
+  PetPack.kt             a pet's sprite sheet and pet.json, loaded from assets/pets/
+  PetBrain.kt            what the pet does: walk, climb, hang, fall, nap (no Android in it)
+  PetOverlay.kt          the pet's window, drawing and touch
   Motion.kt              expand styles, bounce and reduce, worked out into springs
   CurveView.kt           the little motion curves on the style tiles
   Splash.kt              the in-app splash animation

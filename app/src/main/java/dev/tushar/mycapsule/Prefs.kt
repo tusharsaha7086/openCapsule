@@ -171,6 +171,15 @@ class Prefs(context: Context) {
         get() = read(IDLE_OPACITY, IdleOpacity.P40)
         set(v) = write(IDLE_OPACITY, v)
 
+    /** Whether the screen pet walks around the screen. Off by default. */
+    var petEnabled: Boolean
+        get() = sp.getBoolean(PET_ENABLED, false)
+        set(v) = sp.edit().putBoolean(PET_ENABLED, v).apply()
+
+    var petSize: PetSize
+        get() = read(PET_SIZE, PetSize.MEDIUM)
+        set(v) = write(PET_SIZE, v)
+
     /** Haptic tick when the capsule opens, closes or switches cards. */
     var haptics: Boolean
         get() = sp.getBoolean(HAPTICS, true)
@@ -494,6 +503,8 @@ class Prefs(context: Context) {
         private const val SHADOW = "shadow"
         private const val IDLE_ENABLED = "idle_enabled"
         private const val IDLE_OPACITY = "idle_opacity"
+        private const val PET_ENABLED = "pet_enabled"
+        private const val PET_SIZE = "pet_size"
         private const val HAPTICS = "haptics"
         private const val BARCODE_CONTENT = "barcode_content"
         private const val BARCODE_LABEL = "barcode_label"

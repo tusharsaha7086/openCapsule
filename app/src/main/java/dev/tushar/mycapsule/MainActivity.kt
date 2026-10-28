@@ -1028,6 +1028,13 @@ class MainActivity : AppCompatActivity() {
             addRow(controlRow(R.drawable.ic_opacity, "Opacity", "At 0% it blends into the camera but still takes touches",
                 chips(IdleOpacity.entries, prefs.idleOpacity, IdleOpacity::label) { prefs.idleOpacity = it }))
         }
+        section("Screen pet") {
+            addRow(switchRow(R.drawable.ic_pets, "Show the pet",
+                "A little cat that walks along the bottom of the screen, climbs the side edges, crosses the top and naps, over the home screen and every app. Tap it to pat it, drag it to pick it up.",
+                prefs.petEnabled, after = {}) { prefs.petEnabled = it })
+            addRow(controlRow(R.drawable.ic_open_with, "Pet size", "How big the pet is on the screen",
+                chips(PetSize.entries, prefs.petSize, PetSize::label) { prefs.petSize = it }))
+        }
         section("Gestures") {
             Gesture.entries.forEach { gesture ->
                 addRow(controlRow(gestureIcon(gesture), gesture.label, if (gesture == Gesture.SINGLE_TAP) "Set to Nothing and the pill will not open when tapped" else null,

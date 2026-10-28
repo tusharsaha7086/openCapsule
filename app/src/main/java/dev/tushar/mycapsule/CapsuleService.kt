@@ -36,8 +36,16 @@ class CapsuleService : NotificationListenerService() {
     private lateinit var overlay: CapsuleOverlay
     private lateinit var prefsListener: SharedPreferences.OnSharedPreferenceChangeListener
 
-    /** The accessibility service connected or went away, so the pill moves to the other window layer. */
-    private val hostChanged: () -> Unit = { main.post { overlay.refreshIdle() } }
+    private lateinit var pet: PetOverlay
+
+    /** The accessibility service connected or went away, so the pill (and the pet) move to the other window layer. */
+    private val hostChanged: () -> Unit = {
+        main.post {
+            overlay.refreshIdle()
+            pet.hostChanged()
+            pet.sync()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -55,19 +63,29 @@ class CapsuleService : NotificationListenerService() {
             },
             onGesture = ::perform,
         )
-        prefsListener = prefs.listen { main.post { overlay.refreshIdle() } }
+        pet = PetOverlay(this, prefs)
+        prefsListener = prefs.listen {
+            main.post {
+                overlay.refreshIdle()
+                pet.sync()
+            }
+        }
     }
 
-    /** The phone switched between its light and dark theme: the pill takes the colour chosen for the new one. */
+    /** The phone switched between its light and dark theme (the pill takes the colour chosen for the new one), or turned. */
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        main.post { overlay.refreshIdle() }
+        main.post {
+            overlay.refreshIdle()
+            pet.refreshWorld()
+        }
     }
 
     override fun onListenerConnected() {
         OverlayHost.onChange(hostChanged)
         sources.forEach { it.start(this, ::emit) }
         overlay.start()
+        pet.sync()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
@@ -88,7 +106,10 @@ class CapsuleService : NotificationListenerService() {
             if (SystemLinks.ends(system)) main.post { overlay.retire(system.group) }
             return
         }
-        main.post { overlay.show(event) }
+        main.post {
+            overlay.show(event)
+            pet.react(event)
+        }
     }
 
     private fun perform(action: GestureAction) {
@@ -113,6 +134,7 @@ class CapsuleService : NotificationListenerService() {
         OverlayHost.removeListener(hostChanged)
         sources.forEach { it.stop(this) }
         overlay.destroy()
+        pet.stop()
     }
 
     /** Lets a broadcast perform a gesture by name (see [CapsuleOverlay.trigger]), e.g. from a widget or `adb`. */

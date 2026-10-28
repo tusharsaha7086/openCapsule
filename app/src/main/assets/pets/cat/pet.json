@@ -1,0 +1,41 @@
+{
+  "name": "Cat",
+  "frame": 32,
+  "animations": {
+    "idle": {
+      "row": 0,
+      "frames": 2,
+      "fps": 2
+    },
+    "sit": {
+      "row": 1,
+      "frames": 2,
+      "fps": 1
+    },
+    "sleep": {
+      "row": 2,
+      "frames": 2,
+      "fps": 1
+    },
+    "walk": {
+      "row": 3,
+      "frames": 4,
+      "fps": 8
+    },
+    "happy": {
+      "row": 4,
+      "frames": 2,
+      "fps": 4
+    },
+    "fall": {
+      "row": 5,
+      "frames": 1,
+      "fps": 1
+    },
+    "grab": {
+      "row": 6,
+      "frames": 1,
+      "fps": 1
+    }
+  }
+}
