@@ -38,6 +38,14 @@ enum class PetSize(val label: String, val dp: Int) {
     LARGE("Large", 80),
 }
 
+/** Which pet it is: each is a pack in assets/pets/[id]. */
+enum class PetKind(val label: String, val id: String) {
+    CAT("Cat", "cat"),
+    DOG("Dog", "dog"),
+    MONKEY("Monkey", "monkey"),
+    LION("Lion", "lion"),
+}
+
 /** What the phone is doing that the pet takes notice of. */
 class PetEnvironment(
     val music: Boolean = false,
@@ -96,7 +104,7 @@ class PetOverlay(
         when {
             !wanted -> stop()
             view == null -> start()
-            sizePx != dp(prefs.petSize.dp) -> {
+            sizePx != dp(prefs.petSize.dp) || pack?.id != prefs.petKind.id -> {
                 stop()
                 start()
             }
@@ -105,8 +113,11 @@ class PetOverlay(
 
     fun start() {
         if (view != null) return
-        val loaded = pack ?: PetPack.load(context) ?: return
+        // The chosen pet, or the cat when its pack can't be read.
+        val chosen = prefs.petKind.id
+        val loaded = pack?.takeIf { it.id == chosen } ?: PetPack.load(context, chosen) ?: PetPack.load(context) ?: return
         pack = loaded
+        brain.setPersonality(loaded.traits.run, loaded.traits.climb, loaded.traits.climbChance)
         sizePx = dp(prefs.petSize.dp)
         val host = OverlayHost.target(context)
         target = host

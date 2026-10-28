@@ -180,6 +180,11 @@ class Prefs(context: Context) {
         get() = read(PET_SIZE, PetSize.MEDIUM)
         set(v) = write(PET_SIZE, v)
 
+    /** Which pet lives on the screen. */
+    var petKind: PetKind
+        get() = read(PET_KIND, PetKind.CAT)
+        set(v) = write(PET_KIND, v)
+
     /** Whether the pet reacts to the phone: music, the charger and a low battery, a focus session, alerts and shaking. */
     var petReacts: Boolean
         get() = sp.getBoolean(PET_REACTS, true)
@@ -510,6 +515,7 @@ class Prefs(context: Context) {
         private const val IDLE_OPACITY = "idle_opacity"
         private const val PET_ENABLED = "pet_enabled"
         private const val PET_SIZE = "pet_size"
+        private const val PET_KIND = "pet_kind"
         private const val PET_REACTS = "pet_reacts"
         private const val HAPTICS = "haptics"
         private const val BARCODE_CONTENT = "barcode_content"

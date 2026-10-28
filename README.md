@@ -120,17 +120,21 @@ the ceiling over it, and it lands, sits and walks along the edge (and sometimes 
 speed with a sweat drop when the battery is low, perks up when the charger goes in and yawns when it comes out, naps through
 a Pomodoro focus part, and sits up with a "!" for a notification, a call, a timer running out or a focus part ending.
 
-*Pet size* is small, medium or large. Only the pet's own square takes touches, so everything around it still reaches the app underneath. It
+*Which pet* is a cat, a dog, a monkey or a lion, and each moves its own way: the dog runs faster and climbs less, the monkey
+runs a little faster, climbs quickly and almost always takes the wall, and the lion strolls and rarely climbs. *Pet size* is
+small, medium or large. Only the pet's own square takes touches, so everything around it still reaches the app underneath. It
 uses the capsule's window layer (above the status bar with the accessibility service, a normal overlay otherwise), runs
 at about 30 frames a second and stops while the screen is off. It stays on the screen's edges: it does not walk on other
 apps' windows or buttons, which would need the accessibility service to read window positions.
 
-The cat is a *pet pack*: `assets/pets/<name>/sheet.png` (one row per animation, one square cell per frame, the pet
-facing right with its feet at the bottom) and `pet.json` (`{"name": "Cat", "frame": 32, "animations": {"walk": {"row": 3,
-"frames": 4, "fps": 8}, ...}}`). The animations used are idle, sit, sleep, walk, happy, fall, grab, dance, tired, yawn,
-alert, purr and dizzy (one that is missing falls back to idle); the app mirrors the pet to face left, turns it a quarter turn
-to climb and spins it when it is thrown, so no climbing or flying art is needed. `tools/make_cat.py` draws the default
-cat from code (`python tools/make_cat.py`, no libraries needed) and is a starting point for another pet.
+Each pet is a *pet pack*: `assets/pets/<id>/sheet.png` (one row per animation, one square cell per frame, the pet
+facing right with its feet at the bottom) and `pet.json` (`{"name": "Cat", "frame": 32, "traits": {"run": 1.0, "climb": 1.0,
+"climbChance": 55}, "animations": {"walk": {"row": 3, "frames": 4, "fps": 8}, ...}}`; `traits` is optional and sets how fast it
+runs and climbs and how often it takes the wall). The animations used are idle, sit, sleep, walk, happy, fall, grab, dance,
+tired, yawn, alert, purr and dizzy (one that is missing falls back to idle); the app mirrors the pet to face left, turns it a
+quarter turn to climb and spins it when it is thrown, so no climbing or flying art is needed. `tools/make_pets.py` draws the
+cat, dog, monkey and lion from code (`python tools/make_pets.py`, no libraries needed); the four share one skeleton and differ
+in colors, ears, snout, mane, markings and tail, so a new pet is a new entry in its `SPECIES` list plus a `PetKind` in the app.
 
 **Deck look**
 

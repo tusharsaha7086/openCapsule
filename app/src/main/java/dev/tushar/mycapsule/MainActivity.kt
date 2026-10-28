@@ -1032,6 +1032,8 @@ class MainActivity : AppCompatActivity() {
             addRow(switchRow(R.drawable.ic_pets, "Show the pet",
                 "A little cat that walks along the bottom of the screen, climbs the side edges, crosses the top and naps, over the home screen and every app. Tap it to pat it, drag it to pick it up.",
                 prefs.petEnabled, after = {}) { prefs.petEnabled = it })
+            addRow(controlRow(R.drawable.ic_pets, "Which pet", "A cat, a dog, a monkey or a lion. Each moves its own way: the dog runs, the monkey climbs, the lion strolls.",
+                chips(PetKind.entries, prefs.petKind, PetKind::label) { prefs.petKind = it }))
             addRow(controlRow(R.drawable.ic_open_with, "Pet size", "How big the pet is on the screen",
                 chips(PetSize.entries, prefs.petSize, PetSize::label) { prefs.petSize = it }))
             addRow(switchRow(R.drawable.ic_tune, "React to my phone",

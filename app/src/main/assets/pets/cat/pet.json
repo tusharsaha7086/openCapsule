@@ -1,6 +1,11 @@
 {
   "name": "Cat",
   "frame": 32,
+  "traits": {
+    "run": 1.0,
+    "climb": 1.0,
+    "climbChance": 55
+  },
   "animations": {
     "idle": {
       "row": 0,

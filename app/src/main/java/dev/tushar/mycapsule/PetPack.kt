@@ -15,12 +15,20 @@ import org.json.JSONObject
  * way and turns it to climb, so nothing else needs drawing. tools/make_cat.py draws the default cat.
  */
 class PetPack private constructor(
+    val id: String,
     val name: String,
     private val sheet: Bitmap,
     private val cell: Int,
     private val animations: Map<String, Anim>,
+    val traits: Traits,
 ) {
     class Anim(val row: Int, val frames: Int, val fps: Int)
+
+    /**
+     * How the pet carries itself, from the optional `"traits"` of pet.json: how fast it runs and climbs (1 is the cat's pace)
+     * and how often, out of a hundred, it climbs the wall when it reaches the end of the floor.
+     */
+    class Traits(val run: Float = 1f, val climb: Float = 1f, val climbChance: Int = 55)
 
     private val cache = HashMap<String, Bitmap>()
 
@@ -59,8 +67,11 @@ class PetPack private constructor(
                     val a = list.getJSONObject(key)
                     animations[key] = Anim(a.getInt("row"), a.getInt("frames"), a.optInt("fps", 1).coerceAtLeast(1))
                 }
+                val traits = json.optJSONObject("traits")?.let {
+                    Traits(it.optDouble("run", 1.0).toFloat(), it.optDouble("climb", 1.0).toFloat(), it.optInt("climbChance", 55))
+                } ?: Traits()
                 if (sheet == null || !animations.containsKey(IDLE)) null
-                else PetPack(json.optString("name", id), sheet, json.getInt("frame"), animations)
+                else PetPack(id, json.optString("name", id), sheet, json.getInt("frame"), animations, traits)
             } catch (e: Exception) {
                 null
             }

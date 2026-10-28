@@ -93,8 +93,20 @@ class PetBrain(private val random: Random = Random.Default) {
     private val ledgeMinX get() = platformLeft - edge
     private val ledgeMaxX get() = maxOf(platformRight - size + edge, ledgeMinX)
     private val pace get() = if (lowBattery) TIRED_PACE else 1f
-    private val speed get() = size * RUN_SIZES_PER_SECOND * pace
-    private val climbSpeed get() = size * CLIMB_SIZES_PER_SECOND * pace
+    private val speed get() = size * RUN_SIZES_PER_SECOND * pace * runPace
+    private val climbSpeed get() = size * CLIMB_SIZES_PER_SECOND * pace * climbPace
+
+    // The pet's own character: how fast it runs and climbs, and how keen it is on climbing the wall at the end of the floor.
+    private var runPace = 1f
+    private var climbPace = 1f
+    private var climbChance = DEFAULT_CLIMB_CHANCE
+
+    /** Gives the pet its character: [run] and [climb] are paces (1 is the usual), [climbChance] is a percentage. */
+    fun setPersonality(run: Float, climb: Float, climbChance: Int) {
+        runPace = run
+        climbPace = climb
+        this.climbChance = climbChance
+    }
 
     /** Tells the pet how big the screen is: its [width], the pixel row of the [floor] and of the [top], its [size] and [footShare]. */
     fun setWorld(width: Int, floor: Int, top: Int, size: Int, footShare: Float) {
@@ -319,7 +331,7 @@ class PetBrain(private val random: Random = Random.Default) {
 
     /** At either end of the floor it climbs the wall about half the time, and turns round the rest. */
     private fun atFloorEnd(left: Boolean) {
-        if (random.nextInt(PERCENT) < 55) {
+        if (random.nextInt(PERCENT) < climbChance) {
             toWall(left, down = false)
         } else {
             dir = if (left) 1 else -1
@@ -559,6 +571,7 @@ class PetBrain(private val random: Random = Random.Default) {
 
     private companion object {
         const val PERCENT = 100
+        const val DEFAULT_CLIMB_CHANCE = 55
         const val RUN_SIZES_PER_SECOND = 0.9f
         const val CLIMB_SIZES_PER_SECOND = 0.7f
         const val TIRED_PACE = 0.5f
