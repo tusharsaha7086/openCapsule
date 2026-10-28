@@ -701,27 +701,43 @@ class MainActivity : AppCompatActivity() {
 
     /** Which cards the expanded view may hold, and which gesture opens a card that is live. */
     private fun LinearLayout.dynamicCardsPage() {
-        section("Cards") {
-            DeckCard.entries.forEach { card ->
-                addRow(switchRow(card.icon, card.label, card.hint, prefs.cardEnabled(card), after = {}) { prefs.setCardEnabled(card, it) })
-            }
-        }
-        section("Order") {
+        // Related cards share one page of the deck, so they are listed that way: a page, with its own cards under it. The
+        // arrows on a page move the whole page; the arrows on a card move it within its page, which is its tab's place.
+        section("Deck pages") {
             val list = this
             fun render() {
                 list.removeAllViews()
-                val order = prefs.cardOrder
-                order.forEachIndexed { i, card ->
-                    fun move(by: Int) {
-                        prefs.cardOrder = order.toMutableList().apply { add(i + by, removeAt(i)) }
-                        render()
+                val pages = DeckPage.inOrder(prefs.cardOrder)
+                fun save(changed: List<Pair<DeckPage, List<DeckCard>>>) {
+                    prefs.cardOrder = DeckPage.flatten(changed)
+                    render()
+                }
+                fun arrows(index: Int, last: Int, name: String, extra: View? = null, move: (Int) -> Unit) = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    // Both places are always kept, so the arrows line up from row to row; the one that cannot move is hidden.
+                    addView(orderArrow("▲", "Move $name up") { move(-1) }.apply { if (index == 0) visibility = View.INVISIBLE })
+                    addView(orderArrow("▼", "Move $name down") { move(1) }.apply { if (index == last) visibility = View.INVISIBLE })
+                    extra?.let { addView(it) }
+                }
+                pages.forEachIndexed { p, (page, cards) ->
+                    val tabs = if (page.tabbed && cards.size > 1) "Tabs in this order" else page.hint
+                    list.addRow(headRow(page.icon, page.label, "Page ${p + 1} of the deck. $tabs",
+                        arrows(p, pages.lastIndex, "the ${page.label} page") { by ->
+                            save(pages.toMutableList().apply { add(p + by, removeAt(p)) })
+                        }).root)
+                    cards.forEachIndexed { c, card ->
+                        val toggle = SkinSwitch(this@MainActivity, skin, prefs.cardEnabled(card)) { on ->
+                            prefs.setCardEnabled(card, on)
+                        }.apply { contentDescription = card.label }
+                        val trailing = arrows(c, cards.lastIndex, card.label, toggle) { by ->
+                            save(pages.map { (other, members) ->
+                                other to if (other == page) members.toMutableList().apply { add(c + by, removeAt(c)) } else members
+                            })
+                        }
+                        // A card sits under its page, a little in from the page's own row.
+                        list.addRow(headRow(card.icon, card.label, card.hint, trailing).root.apply { setPadding(paddingLeft + dp(CARD_INDENT_DP), paddingTop, paddingRight, paddingBottom) })
                     }
-                    val arrows = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        if (i > 0) addView(orderArrow("▲", "Move ${card.label} up") { move(-1) })
-                        if (i < order.lastIndex) addView(orderArrow("▼", "Move ${card.label} down") { move(1) })
-                    }
-                    list.addRow(headRow(card.icon, card.label, "Position ${i + 1} in the deck", arrows).root)
                 }
             }
             render()
@@ -1922,6 +1938,7 @@ class MainActivity : AppCompatActivity() {
         const val DURATION_STEPS = 100
         const val DEFAULT_TIMER_MINUTES = 5
         const val SECONDS_PER_MINUTE = 60
+        const val CARD_INDENT_DP = 18
         const val STYLE_FADE_MS = 240L
         const val PAGE_FADE_MS = 160L
         const val TILE_W = 104

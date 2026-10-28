@@ -49,8 +49,10 @@ and a brief capsule when a part ends. **Phone stats** shows memory, storage, liv
 clock, heat and uptime; Android does not let an app read the processor's load, so there is no CPU percentage. Battery,
 stats and Pomodoro redraw by themselves while the deck is open.
 The other cards appear only while they have something to show (a song, music playing for
-the volume card, a running timer or stopwatch, a saved barcode). Its **Order** section moves each card up or down to set
-the order you swipe through them. The same page picks the gesture that opens a *live* card.
+the volume card, a running timer or stopwatch, a saved barcode). Its **Deck pages** list shows the deck the way it is
+built: each page (Player, Notes and clip, Control, Focus, System, Barcode) with the cards it holds under it, so
+Quick settings and Quick launcher sit together under Control. The arrows on a page move the whole page, and the
+arrows on a card move it within its page, which sets its tab's place. The same page picks the gesture that opens a *live* card.
 A card is live while music plays, a timer or stopwatch runs, the torch is on, or the volume is in use. While one is
 live, the chosen gesture (single tap by default) opens the deck on that card instead of running its own action; every
 other gesture keeps its mapping, and the chosen one behaves normally when nothing is live. Start a stopwatch from
@@ -96,9 +98,9 @@ Related cards share one page, so the deck has fewer pages to swipe through. A pa
 you tap its name at the top: *Settings* and *Apps* (quick settings and the launcher), *Focus* and *Timers* (Pomodoro, the
 timer and the stopwatch), *Clipboard*, *Notes* and *Calendar*, and *Battery* and *Phone* (battery and phone stats). A song
 and its volume sit one above the other on one page. A page shows only the cards that are on and have something to show,
-and a card whose page-mates are off stays on a page of its own. The switches and order under Dynamic cards still apply to
-each card: a page sits where its first card is in that order, and its tabs follow that order too, so moving a card down
-moves its tab to the right. Each time the deck opens, a page starts on its first tab (a running timer or song opens on its
+and a card whose page-mates are off stays on a page of its own. The switches and order under Dynamic cards (the **Deck
+pages** list) apply to each card: a page sits where its first card is in that order, and its tabs follow that order too,
+so moving a card down moves its tab to the right. Each time the deck opens, a page starts on its first tab (a running timer or song opens on its
 own tab instead); the tab you pick stays only while the deck is open.
 
 **Deck look**

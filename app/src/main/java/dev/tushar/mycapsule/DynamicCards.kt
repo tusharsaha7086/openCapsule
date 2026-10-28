@@ -1,17 +1,28 @@
 package dev.tushar.mycapsule
 
 /** Which cards share one page of the deck, and whether the page shows them as tabs ([tabbed]) or one above the other. */
-enum class DeckPage(val cards: List<DeckCard>, val tabbed: Boolean = true) {
-    PLAYER(listOf(DeckCard.MEDIA, DeckCard.VOLUME), tabbed = false),
-    CONTROL(listOf(DeckCard.CONTROLS, DeckCard.LAUNCHER)),
-    FOCUS(listOf(DeckCard.POMODORO, DeckCard.CLOCK)),
-    NOTES(listOf(DeckCard.CLIPBOARD, DeckCard.NOTES, DeckCard.CALENDAR)),
-    SYSTEM(listOf(DeckCard.BATTERY, DeckCard.STATS)),
-    BARCODE(listOf(DeckCard.BARCODE)),
+enum class DeckPage(val label: String, val hint: String, val icon: Int, val cards: List<DeckCard>, val tabbed: Boolean = true) {
+    PLAYER("Player", "The song with its volume, one above the other", R.drawable.ic_music_note, listOf(DeckCard.MEDIA, DeckCard.VOLUME), tabbed = false),
+    CONTROL("Control", "Quick settings and Quick launcher, switched between with tabs", R.drawable.ic_tune, listOf(DeckCard.CONTROLS, DeckCard.LAUNCHER)),
+    FOCUS("Focus", "Pomodoro, timer and stopwatch, switched between with tabs", R.drawable.ic_timer, listOf(DeckCard.POMODORO, DeckCard.CLOCK)),
+    NOTES("Notes and clip", "Clipboard, notes and calendar, switched between with tabs", R.drawable.ic_edit_note, listOf(DeckCard.CLIPBOARD, DeckCard.NOTES, DeckCard.CALENDAR)),
+    SYSTEM("System", "Battery and phone stats, switched between with tabs", R.drawable.ic_memory, listOf(DeckCard.BATTERY, DeckCard.STATS)),
+    BARCODE("Barcode", "Your saved pass or code", R.drawable.ic_qr_code_2, listOf(DeckCard.BARCODE)),
     ;
 
     companion object {
         fun of(card: DeckCard) = entries.first { card in it.cards }
+
+        /**
+         * The pages in the order the saved card [order] puts them (a page sits where its first card is), each with its cards in
+         * that order too. This is what the settings screen lists and what the deck shows.
+         */
+        fun inOrder(order: List<DeckCard>): List<Pair<DeckPage, List<DeckCard>>> =
+            entries.map { page -> page to page.cards.sortedBy { order.indexOf(it) } }
+                .sortedBy { (_, cards) -> cards.minOf { order.indexOf(it) } }
+
+        /** The saved card order that lists [pages] one after the other, each page's cards together. */
+        fun flatten(pages: List<Pair<DeckPage, List<DeckCard>>>): List<DeckCard> = pages.flatMap { it.second }
     }
 }
 
