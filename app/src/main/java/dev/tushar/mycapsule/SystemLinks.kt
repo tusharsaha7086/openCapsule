@@ -14,10 +14,24 @@ object SystemLinks {
 
     private const val SETTINGS_PACKAGE = "com.android.settings"
 
-    /** Whether the banner for [event] stays until it is swiped away. Charging and unlocking are only a passing note. */
+    /**
+     * Whether [event] is a switch being turned off (or something disconnecting): the end of what its group's turn-on
+     * banner announced. The banner for turning on stays up until swiped, so the end of it takes that banner away by itself.
+     */
+    fun ends(event: SystemEvent) = when (event) {
+        SystemEvent.WIFI_OFF, SystemEvent.WIFI_DISCONNECTED, SystemEvent.HOTSPOT_OFF, SystemEvent.LOCATION_OFF,
+        SystemEvent.BLUETOOTH_OFF, SystemEvent.AIRPLANE_OFF, SystemEvent.DND_OFF, SystemEvent.HEADPHONES_DISCONNECTED,
+        SystemEvent.VPN_DISCONNECTED, SystemEvent.ROTATE_OFF -> true
+        else -> false
+    }
+
+    /**
+     * Whether the banner for [event] stays until it is swiped away. Charging and unlocking are only a passing note, and so is
+     * the end of anything (see [ends]): it closes by itself, taking the turn-on banner with it.
+     */
     fun sticky(event: SystemEvent) = when (event) {
         SystemEvent.CHARGING_STARTED, SystemEvent.CHARGING_STOPPED, SystemEvent.UNLOCK -> false
-        else -> true
+        else -> !ends(event)
     }
 
     /** The pages to try for [event], best first; empty when there is nothing to open. */

@@ -212,6 +212,12 @@ hotspot or airplane mode on or off itself, which is why these link to the page w
 the System events page turn the staying-until-swiped and the Settings button off. While a banner is up, the lowest
 priority capsules (music changes, for one) wait behind it; a notification or a call replaces it.
 
+**Turning something off closes its banner.** A banner that stays until swiped is for something being switched on or
+connecting. When the same thing is switched off or disconnects (Wi-Fi, hotspot, Bluetooth, location, airplane mode, Do Not
+Disturb, headphones, VPN, auto-rotate), the banner swipes itself up and the next one waiting takes its place. If that
+turn-off event has its own switch on, it shows as a short capsule that closes by itself instead of a banner that stays;
+if the switch is off, the old banner just leaves without anything replacing it.
+
 **Several banners at once.** When more than one banner is waiting (the ones that stay until swiped up: system events and
 the torch), the first to arrive is shown full size in the centre. The others wait at the sides as small round icons in
 the capsule's own material: the second on the right, the third on the left, the fourth on the right again, and so on,

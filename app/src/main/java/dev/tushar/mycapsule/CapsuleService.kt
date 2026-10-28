@@ -82,7 +82,12 @@ class CapsuleService : NotificationListenerService() {
     private fun emit(event: CapsuleEvent) {
         if (!OverlayHost.canDraw(this) || !prefs.enabled(event.kind)) return
         // Phone events (Wi-Fi, Bluetooth and so on) each have a switch of their own on top of the kind's.
-        if (event.system?.let { !prefs.systemEnabled(it) } == true) return
+        val system = event.system
+        if (system != null && !prefs.systemEnabled(system)) {
+            // A turn-off nobody asked to see still ends the turn-on banner that is up: it swipes itself away.
+            if (SystemLinks.ends(system)) main.post { overlay.retire(system.group) }
+            return
+        }
         main.post { overlay.show(event) }
     }
 

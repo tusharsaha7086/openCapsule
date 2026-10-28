@@ -218,6 +218,27 @@ class CapsuleOverlay(
         )
     }
 
+    /**
+     * Takes away the banner waiting or showing for [group] without anyone swiping it, because what it announced has ended
+     * (Wi-Fi turned off after its turn-on banner). The one in the centre swipes up the way a swipe would send it, and the next
+     * banner takes its place; one waiting at a side just leaves the stack. Nothing happens when there is no such banner.
+     */
+    fun retire(group: SystemGroup) {
+        val banner = tray.firstOrNull { trayKey(it) == group } ?: return
+        val shown = view != null && !deckOpen && current?.let { inTray(it) && trayKey(it) == group } == true
+        when {
+            // Not on screen (the deck or another capsule has it): it only leaves the stack, and does not come back later.
+            !shown -> tray.remove(banner)
+            tray.first() === banner -> dismissByUser(banner)
+            else -> {
+                tray.remove(banner)
+                val previous = bodySize()
+                resetState()
+                render(tray.first(), Anim.UPDATE, previous)
+            }
+        }
+    }
+
     /** Removes the capsule at once and brings the idle pill back. */
     fun dismiss() {
         clear()
