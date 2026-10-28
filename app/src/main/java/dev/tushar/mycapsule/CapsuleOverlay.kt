@@ -1,11 +1,17 @@
-﻿package dev.tushar.mycapsule
+package dev.tushar.mycapsule
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Canvas
 import android.graphics.Outline
+import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.SystemClock
@@ -115,7 +121,19 @@ class CapsuleOverlay(
      * tiles and chips stay in the same colour family as the text and icons. Otherwise [plain], the fixed white or black wash.
      */
     private fun wash(percent: Int, plain: Int): Int =
-        if (ownDeck) ((userInk ?: if (onLight) INK else WHITE) and 0x00FFFFFF) or (percent * 255 / 100 shl 24) else plain
+        if (deckOpen) ((userInk ?: if (onLight) INK else WHITE) and 0x00FFFFFF) or (percent * 255 / 100 shl 24) else plain
+
+    /** The corner radius of the capsule's body. The deck is rounder than a small capsule, unless the shape is set to square. */
+    private fun shapeRadiusDp(): Int {
+        val chosen = prefs.shape.radiusDp
+        return if (deckOpen && chosen > Shape.SQUARE.radiusDp) maxOf(chosen, DECK_RADIUS_DP) else chosen
+    }
+
+    /** The deck's width: the same for every card, but never wider than a narrow phone's screen leaves room for. */
+    private fun deckWidth() = minOf(dp(DECK_WIDTH_DP), context.resources.displayMetrics.widthPixels - 2 * dp(SIDE_MARGIN_DP + SHADOW_ROOM_DP))
+
+    /** The colour of the capsule being built, for the icon on a filled button. */
+    private var bodyColor = 0
     private fun ink(auto: Int) = userInk ?: auto
     private fun inkDim(auto: Int) = userInk?.let { (it and 0x00FFFFFF) or 0xBF000000.toInt() } ?: auto
     private fun inkTrack(auto: Int) = userInk?.let { (it and 0x00FFFFFF) or 0x44000000 } ?: auto
@@ -245,7 +263,7 @@ class CapsuleOverlay(
             // Fades out where it is, instead of flowing back into the pill.
             val body = (v as ViewGroup).getChildAt(0)
             m.retarget(
-                MorphShape(body.width.toFloat(), body.height.toFloat(), dp(prefs.shape.radiusDp).toFloat()),
+                MorphShape(body.width.toFloat(), body.height.toFloat(), dp(shapeRadiusDp()).toFloat()),
                 travelX = 0f,
                 travelY = 0f,
                 fadeBackground = true,
@@ -472,7 +490,10 @@ class CapsuleOverlay(
     }
 
     /** The deck card a kind of event shows on. Kinds that share a card (timer and stopwatch, torch and phone events) answer alike. */
-    private fun slot(kind: Kind?): Any? = kind?.let { DeckCard.of(it) ?: it }
+    private fun slot(kind: Kind?): Any? = kind?.let(DeckCard::pageOf)
+
+    /** The tab chosen on each page of the deck, kept while the deck stays open. */
+    private val tabSelection = mutableMapOf<Any, Int>()
 
     private fun placeholder() = CapsuleEvent(
         kind = Kind.MESSAGE,
@@ -559,7 +580,7 @@ class CapsuleOverlay(
     private fun startMorph(v: View, anim: Anim, previous: Size?) {
         val body = (v as ViewGroup).getChildAt(0) as ViewGroup
         val mo = motion
-        val m = Morph(v, body, dp(prefs.shape.radiusDp).toFloat(), pop = mo.pop)
+        val m = Morph(v, body, dp(shapeRadiusDp()).toFloat(), pop = mo.pop)
         morph = m
         v.doOnPreDraw {
             if (view !== v) return@doOnPreDraw
@@ -571,7 +592,7 @@ class CapsuleOverlay(
                     if (mo.fade) {
                         // No travel: it fades in right where it will rest.
                         m.start(
-                            from = MorphShape(toWidth.toFloat(), toHeight.toFloat(), dp(prefs.shape.radiusDp).toFloat()),
+                            from = MorphShape(toWidth.toFloat(), toHeight.toFloat(), dp(shapeRadiusDp()).toFloat()),
                             travelX = 0f,
                             travelY = 0f,
                             fadeBackground = true,
@@ -596,7 +617,7 @@ class CapsuleOverlay(
                     val from = MorphShape(
                         minOf(previous.width, toWidth).toFloat(),
                         minOf(previous.height, toHeight).toFloat(),
-                        dp(prefs.shape.radiusDp).toFloat(),
+                        dp(shapeRadiusDp()).toFloat(),
                     )
                     val slide = when (anim) {
                         Anim.SLIDE_FROM_RIGHT -> dp(SLIDE_DP).toFloat()
@@ -665,7 +686,7 @@ class CapsuleOverlay(
         view = fresh
         viewExtra = extra
         val body = (fresh as ViewGroup).getChildAt(0) as ViewGroup
-        val m = Morph(fresh, body, dp(prefs.shape.radiusDp).toFloat(), pop = motion.pop)
+        val m = Morph(fresh, body, dp(shapeRadiusDp()).toFloat(), pop = motion.pop)
         morph = m
         fresh.doOnPreDraw {
             if (view !== fresh) return@doOnPreDraw
@@ -699,63 +720,115 @@ class CapsuleOverlay(
             val color = if (ownDeck) prefs.deckColor(context) else event.accent.takeIf { prefs.coverColors } ?: prefs.capsuleColor(context)
             // Dark text on a light capsule. The styles' own text colours are made for dark capsules, so they step aside.
             onLight = isLightColor(color)
-            val radius = dp(prefs.shape.radiusDp).toFloat()
+            bodyColor = color
+            val radius = dp(shapeRadiusDp()).toFloat()
             background = look?.let { CapsuleLooks.body(it, color, radius, dp(prefs.borderWidth.dp), prefs.borderColorValue()) }
                 ?: GradientDrawable().apply {
                     setColor(color)
                     cornerRadius = radius
                     setStroke(dp(prefs.borderWidth.dp), prefs.borderColorValue())
                 }
-            setPadding(dp(14), dp(12), dp(if (vertical) 14 else 20), dp(12))
+            if (deckOpen) setPadding(dp(DECK_PAD_DP), dp(DECK_PAD_DP), dp(DECK_PAD_DP), dp(DECK_PAD_DP))
+            else setPadding(dp(14), dp(12), dp(if (vertical) 14 else 20), dp(12))
             elevation = dp(prefs.shadow.elevationDp).toFloat()
-            if (vertical) minimumWidth = dp(300)
+            if (vertical) minimumWidth = if (deckOpen) deckWidth() else dp(300)
             if (deckOpen) minimumHeight = deckHeight
         }
 
         val content = if (deckOpen) {
             LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
+                // Headers start at the same place on every card, so they stay put as you swipe.
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
                 root.addView(this, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             }
         } else {
             root
         }
-        // In the deck the header keeps its own width so it stays centred, like the buttons and image below it.
-        if (deckOpen && event.sections.isNotEmpty()) {
-            // A card that holds several (timer over stopwatch): each keeps its own header and buttons.
-            event.sections.forEachIndexed { i, section ->
-                content.addView(header(section), LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                    .apply { if (i > 0) topMargin = dp(SECTION_GAP_DP) })
-                if (section.actions.isNotEmpty()) content.addView(buttonRow(section.actions))
-            }
-        } else if (deckOpen) {
-            content.addView(header(event), LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        if (deckOpen) {
+            addDeckContent(content, event, gap = false)
         } else {
             content.addView(header(event))
+            event.image?.let { content.addView(imagePanel(it)) }
+            if (buttons.isNotEmpty()) content.addView(buttonRow(buttons, event.kind))
         }
-        event.image?.let { content.addView(imagePanel(it)) }
-        if (deckOpen && event.tiles.isNotEmpty()) content.addView(tileGrid(event.tiles))
-        if (deckOpen && event.rows.isNotEmpty()) content.addView(rowList(event.rows, event.kind))
-        if (deckOpen && event.stats.isNotEmpty()) content.addView(statGrid(event.stats))
-        // The playback bar belongs to the deck only; small and long-press-expanded capsules don't have one.
-        if (deckOpen) event.playback?.invoke()?.let { content.addView(progressRow(it)) }
-        if (buttons.isNotEmpty()) content.addView(buttonRow(buttons))
         if (deckOpen && deck.size > 1) root.addView(dots())
         return root
     }
 
-    /** Sets [deckHeight] to the height of the tallest card, so the deck keeps one height for every card. */
+    /**
+     * Fills a deck page with [card]. A page that gathers several cards either shows them as tabs, one at a time, or draws
+     * them one above the other; each card keeps its own header, grid or list, playback bar and buttons.
+     */
+    private fun addDeckContent(into: LinearLayout, card: CapsuleEvent, gap: Boolean) {
+        val wide = LinearLayout.LayoutParams.MATCH_PARENT
+        val wrap = LinearLayout.LayoutParams.WRAP_CONTENT
+        if (card.sections.isNotEmpty()) {
+            if (card.tabs.isNotEmpty()) {
+                val shown = selectedTab(card)
+                into.addView(tabBar(card, shown), LinearLayout.LayoutParams(wide, wrap))
+                addDeckContent(into, card.sections[shown], gap = true)
+            } else {
+                card.sections.forEachIndexed { i, section -> addDeckContent(into, section, gap = gap || i > 0) }
+            }
+            return
+        }
+        into.addView(deckHeader(card), LinearLayout.LayoutParams(wide, wrap).apply { if (gap) topMargin = dp(SECTION_GAP_DP) })
+        card.image?.let { into.addView(imagePanel(it)) }
+        if (card.tiles.isNotEmpty()) into.addView(tileGrid(card.tiles))
+        if (card.rows.isNotEmpty()) into.addView(rowList(card.rows, card.kind))
+        if (card.stats.isNotEmpty()) into.addView(statGrid(card.stats))
+        // The playback bar belongs to the deck only; small and long-press-expanded capsules don't have one.
+        card.playback?.invoke()?.let { into.addView(progressRow(it)) }
+        val buttons = card.expandedActions.ifEmpty { card.actions }
+        if (buttons.isNotEmpty()) into.addView(buttonRow(buttons, card.kind))
+    }
+
+    private fun selectedTab(card: CapsuleEvent) = (tabSelection[slot(card.kind)] ?: 0).coerceIn(0, card.sections.lastIndex)
+
+    /** The row of tab names at the top of a page: the open one is a lighter pill, the others plain text. */
+    private fun tabBar(card: CapsuleEvent, shown: Int) = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        background = GradientDrawable().apply { setColor(wash(8, 0)); cornerRadius = dp(DECK_TAB_DP).toFloat() }
+        setPadding(dp(3), dp(3), dp(3), dp(3))
+        card.tabs.forEachIndexed { i, name ->
+            addView(TextView(context).apply {
+                text = name
+                textSize = 12f
+                typeface = Typeface.MONOSPACE
+                gravity = Gravity.CENTER
+                setSingleLine()
+                ellipsize = TextUtils.TruncateAt.END
+                setPadding(dp(6), dp(8), dp(6), dp(8))
+                setTextColor(if (i == shown) ink(if (onLight) INK else WHITE) else inkDim(if (onLight) INK_DIM else LIGHT_GRAY))
+                if (i == shown) background = GradientDrawable().apply { setColor(wash(18, 0)); cornerRadius = dp(DECK_TAB_DP).toFloat() - dp(3) }
+                isClickable = true
+                setOnClickListener {
+                    tabSelection[slot(card.kind) ?: return@setOnClickListener] = i
+                    restartDeckTimer()
+                    haptic()
+                    renderDeck(Anim.UPDATE)
+                }
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            .apply { bottomMargin = dp(12) }
+    }
+
+    /**
+     * Sets [deckHeight] so the deck keeps one height for every card: the tallest card, but never less than
+     * [DECK_HEIGHT_DP], so the deck is the same size whether or not a timer is running. The width is fixed in [build].
+     */
     private fun measureDeck() {
         val shown = expanded
         deckHeight = 0
         if (!prefs.uniformDeck) return
-        val widthSpec = View.MeasureSpec.makeMeasureSpec(context.resources.displayMetrics.widthPixels, View.MeasureSpec.AT_MOST)
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(deckWidth(), View.MeasureSpec.EXACTLY)
         val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        deckHeight = deck.maxOf { card ->
+        deckHeight = maxOf(dp(DECK_HEIGHT_DP), deck.maxOf { card ->
             expanded = card.expandedActions.isNotEmpty()
             buildRoot(card).apply { measure(widthSpec, heightSpec) }.measuredHeight
-        }
+        })
         expanded = shown
     }
 
@@ -776,8 +849,9 @@ class CapsuleOverlay(
             clipChildren = false
             clipToPadding = false
             setPadding(dp(SHADOW_ROOM_DP) + sideRoom, dp(SHADOW_ROOM_DP), dp(SHADOW_ROOM_DP) + sideRoom, dp(SHADOW_ROOM_DP))
+            // Every deck card has exactly the same width, whatever is on it.
             addView(root, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                if (deckOpen) deckWidth() else FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
             ))
             // Icons sit in the room beside the capsule: a negative margin moves each past the capsule's own edge.
             right.forEachIndexed { k, e ->
@@ -834,6 +908,90 @@ class CapsuleOverlay(
         }
     }
 
+    /**
+     * The header of a deck card: a round icon, the title and a small monospace line under it. A song shows its cover as a
+     * wide panel above its title, and a running timer or focus session adds a progress ring with the time in it.
+     */
+    private fun deckHeader(event: CapsuleEvent): View {
+        val fg = ink(if (onLight) INK else WHITE)
+        val dim = inkDim(if (onLight) INK_DIM else LIGHT_GRAY)
+        val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val wide = LinearLayout.LayoutParams.MATCH_PARENT
+        val wrap = LinearLayout.LayoutParams.WRAP_CONTENT
+
+        if (event.kind == Kind.MEDIA && event.icon != null) {
+            column.addView(rounded(ImageView(context).apply {
+                setImageDrawable(event.icon)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = GradientDrawable().apply { setColor(wash(8, 0)) }
+            }, DECK_PANEL_RADIUS_DP), LinearLayout.LayoutParams(wide, dp(DECK_ART_DP)))
+            column.addView(line(event.title, fg, 17f, bold = true, maxWidthDp = DECK_INNER_DP),
+                LinearLayout.LayoutParams(wrap, wrap).apply { topMargin = dp(10) })
+            column.addView(line(event.text, dim, 13f, maxWidthDp = DECK_INNER_DP))
+            return column
+        }
+
+        val ringed = event.progress != null && (event.kind == Kind.TIMER || event.kind == Kind.POMODORO)
+        // A ring carries the time itself, so the header names the card; otherwise it shows the card's own title and text.
+        val title = if (ringed) event.kind.label else event.title
+        val subtitle = if (ringed) event.text?.takeIf { it.toString() != event.kind.label } else event.text
+
+        val badge = FrameLayout(context).apply {
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(wash(14, 0)) }
+            addView(ImageView(context).apply {
+                setImageDrawable(event.icon)
+                if (event.kind in GLYPH_KINDS) {
+                    setColorFilter(fg)
+                } else {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }
+            }, if (event.kind in GLYPH_KINDS) {
+                FrameLayout.LayoutParams(dp(DECK_GLYPH_DP), dp(DECK_GLYPH_DP), Gravity.CENTER)
+            } else {
+                FrameLayout.LayoutParams(dp(DECK_BADGE_DP), dp(DECK_BADGE_DP), Gravity.CENTER)
+            })
+            if (event.kind !in GLYPH_KINDS) rounded(this, DECK_BADGE_DP / 2)
+        }
+        column.addView(LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(badge, LinearLayout.LayoutParams(dp(DECK_BADGE_DP), dp(DECK_BADGE_DP)).apply { marginEnd = dp(12) })
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(line(title, fg, 17f, bold = true, maxWidthDp = DECK_INNER_DP - DECK_BADGE_DP - 12))
+                addView(line(subtitle, dim, 12f, maxWidthDp = DECK_INNER_DP - DECK_BADGE_DP - 12).apply { typeface = Typeface.MONOSPACE })
+            }, LinearLayout.LayoutParams(0, wrap, 1f))
+        }, LinearLayout.LayoutParams(wide, wrap))
+
+        event.progress?.let { fraction ->
+            if (ringed) {
+                column.addView(FrameLayout(context).apply {
+                    addView(RingView(context, fraction, fg, wash(16, 0), dp(RING_STROKE_DP).toFloat()),
+                        FrameLayout.LayoutParams(dp(RING_DP), dp(RING_DP), Gravity.CENTER))
+                    addView(line(event.title, fg, 28f, bold = true, maxWidthDp = RING_DP - 2 * RING_STROKE_DP)
+                        .apply { typeface = Typeface.MONOSPACE; gravity = Gravity.CENTER },
+                        FrameLayout.LayoutParams(wrap, wrap, Gravity.CENTER))
+                }, LinearLayout.LayoutParams(wide, dp(RING_DP)).apply { topMargin = dp(10) })
+            } else {
+                column.addView(ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+                    max = PROGRESS_MAX
+                    progress = (fraction * PROGRESS_MAX).toInt()
+                    progressDrawable = barDrawable(fg, wash(16, 0))
+                }, LinearLayout.LayoutParams(wide, dp(DECK_BAR_DP)).apply { topMargin = dp(12) })
+            }
+        }
+        return column
+    }
+
+    /** A bar with round ends: a faint track with the text colour filling it from the left. */
+    private fun barDrawable(fill: Int, track: Int): Drawable {
+        fun pill(color: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(DECK_BAR_DP).toFloat() / 2 }
+        return LayerDrawable(arrayOf(pill(track), ClipDrawable(pill(fill), Gravity.START, ClipDrawable.HORIZONTAL))).apply {
+            setId(0, android.R.id.background)
+            setId(1, android.R.id.progress)
+        }
+    }
+
     /** White panel so a barcode keeps its quiet zone and stays scannable on any capsule colour. */
     private fun imagePanel(image: Drawable) = rounded(ImageView(context).apply {
         setImageDrawable(image)
@@ -848,7 +1006,7 @@ class CapsuleOverlay(
     /** The quick settings tiles in rows of [TILE_COLUMNS]: an icon over a name, brighter while the setting is on. */
     private fun tileGrid(tiles: List<Tile>) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        layoutParams = LinearLayout.LayoutParams(dp(TILE_GRID_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(TILE_GRID_TOP_DP) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(TILE_GRID_TOP_DP) }
         tiles.chunked(TILE_COLUMNS).forEach { rowTiles ->
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -872,7 +1030,9 @@ class CapsuleOverlay(
                 if (tile.on) wash(18, if (onLight) 0x33000000 else 0x44FFFFFF)
                 else wash(7, if (onLight) 0x0F000000 else 0x14FFFFFF),
             )
-            cornerRadius = dp(14).toFloat()
+            cornerRadius = dp(18).toFloat()
+            // A lit tile gets a faint outline in the text colour, like the card's other highlights.
+            if (tile.on && deckOpen) setStroke(dp(1), wash(35, 0))
         }
         contentDescription = "${tile.label}, ${if (tile.on) "on" else "off"}"
         addView(ImageView(context).apply {
@@ -880,6 +1040,12 @@ class CapsuleOverlay(
             if (tile.tinted) setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
             alpha = if (tile.on || !tile.tinted) 1f else TILE_OFF_ALPHA
         }, LinearLayout.LayoutParams(dp(if (tile.tinted) TILE_ICON_DP else TILE_APP_ICON_DP), dp(if (tile.tinted) TILE_ICON_DP else TILE_APP_ICON_DP)))
+        // The tile's name under its icon, as on the control deck: dimmer while the setting is off.
+        addView(
+            line(tile.label, if (tile.on) ink(if (onLight) INK else WHITE) else inkDim(if (onLight) INK_DIM else LIGHT_GRAY), 10f, maxWidthDp = TILE_LABEL_DP)
+                .apply { gravity = Gravity.CENTER },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) },
+        )
         isClickable = true
         setOnClickListener {
             if (deckOpen) restartDeckTimer()
@@ -891,25 +1057,32 @@ class CapsuleOverlay(
     /** A stats card's readings in rows of [STAT_COLUMNS]: a small icon and its value in a chip. */
     private fun statGrid(stats: List<Stat>) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        layoutParams = LinearLayout.LayoutParams(dp(TILE_GRID_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(TILE_GRID_TOP_DP) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(TILE_GRID_TOP_DP) }
         stats.chunked(STAT_COLUMNS).forEach { rowStats ->
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 rowStats.forEach { stat ->
+                    // A panel like the telemetry card's: the reading's name small in the top corner with its icon, the value below it.
                     addView(LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER
-                        setPadding(dp(6), dp(8), dp(6), dp(8))
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(12), dp(10), dp(12), dp(10))
                         background = GradientDrawable().apply {
                             setColor(wash(8, if (onLight) 0x14000000 else 0x1FFFFFFF))
-                            cornerRadius = dp(12).toFloat()
+                            cornerRadius = dp(16).toFloat()
                         }
                         contentDescription = "${stat.description} ${stat.value}"
-                        addView(ImageView(context).apply {
-                            setImageDrawable(stat.icon)
-                            setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
-                        }, LinearLayout.LayoutParams(dp(STAT_ICON_DP), dp(STAT_ICON_DP)).apply { marginEnd = dp(6) })
-                        addView(line(stat.value, ink(if (onLight) INK else look?.title ?: WHITE), 12f, maxWidthDp = STAT_TEXT_DP))
+                        addView(LinearLayout(context).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            addView(line(stat.description.substringBefore(','), inkDim(if (onLight) INK_DIM else LIGHT_GRAY), 11f, maxWidthDp = STAT_TEXT_DP)
+                                .apply { typeface = Typeface.MONOSPACE }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                            addView(ImageView(context).apply {
+                                setImageDrawable(stat.icon)
+                                setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
+                            }, LinearLayout.LayoutParams(dp(STAT_ICON_DP), dp(STAT_ICON_DP)))
+                        })
+                        addView(line(stat.value, ink(if (onLight) INK else look?.title ?: WHITE), 17f, bold = true, maxWidthDp = STAT_TEXT_DP + 24),
+                            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
                     }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP), dp(TILE_GAP_DP)) })
                 }
                 // A short last row keeps its chips the same size as the rows above it.
@@ -921,7 +1094,7 @@ class CapsuleOverlay(
     /** A list card's lines, one under the other: a number, then the text on one line. A tap runs the row; a long press its other action. */
     private fun rowList(rows: List<Row>, kind: Kind) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        layoutParams = LinearLayout.LayoutParams(dp(TILE_GRID_WIDTH_DP), LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         rows.forEach { row ->
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -930,7 +1103,7 @@ class CapsuleOverlay(
                 setPadding(dp(12), dp(4), dp(12), dp(4))
                 background = GradientDrawable().apply {
                     setColor(wash(8, if (onLight) 0x14000000 else 0x1FFFFFFF))
-                    cornerRadius = dp(12).toFloat()
+                    cornerRadius = dp(if (deckOpen) 16 else 12).toFloat()
                 }
                 row.number?.let {
                     addView(line(it.toString(), inkDim(if (onLight) INK_DIM else look?.subtitle ?: LIGHT_GRAY), 12f, bold = true, maxWidthDp = ROW_NUMBER_DP)
@@ -976,10 +1149,11 @@ class CapsuleOverlay(
         deck.indices.forEach { i ->
             addView(View(context).apply {
                 background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
+                    // The card you are on is a longer pill, the others round dots.
+                    cornerRadius = dp(DOT_DP).toFloat()
                     setColor(if (i == deckIndex) ink(if (onLight) INK else look?.dotOn ?: WHITE) else inkTrack(if (onLight) TRACK_LIGHT else look?.dotOff ?: DOT_OFF))
                 }
-                layoutParams = LinearLayout.LayoutParams(dp(DOT_DP), dp(DOT_DP)).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(if (i == deckIndex) DOT_ACTIVE_DP else DOT_DP), dp(DOT_DP)).apply {
                     marginStart = dp(3)
                     marginEnd = dp(3)
                 }
@@ -1002,8 +1176,7 @@ class CapsuleOverlay(
             tag = TAG_SEEK
             max = playback.durationMs.toInt().coerceAtLeast(1)
             progress = playback.positionMs.toInt()
-            progressTintList = ColorStateList.valueOf(ink(if (onLight) INK else look?.barActive ?: WHITE))
-            progressBackgroundTintList = ColorStateList.valueOf(inkTrack(if (onLight) TRACK_LIGHT else look?.barTrack ?: TRACK))
+            progressDrawable = barDrawable(ink(if (onLight) INK else look?.barActive ?: WHITE), wash(16, 0))
             splitTrack = false
             minimumHeight = dp(SEEK_HEIGHT_DP)
             setPadding(dp(8), dp(6), dp(8), dp(6))
@@ -1060,25 +1233,45 @@ class CapsuleOverlay(
         return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, rest) else "%d:%02d".format(minutes, rest)
     }
 
-    private fun buttonRow(actions: List<CapsuleAction>) = LinearLayout(context).apply {
+    /**
+     * The buttons of a capsule. In the deck each icon sits in a round wash, and the main one of a song (play or pause, between
+     * previous and next) or a timer (pause or resume, the first) is a larger filled circle in the text colour.
+     */
+    private fun buttonRow(actions: List<CapsuleAction>, kind: Kind? = null) = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
-        val size = if (expanded) 52 else 44
-        actions.forEach { action ->
-            addView(if (action.label != null) labelButton(action) else iconButton(action, size))
+        val size = if (deckOpen) DECK_BUTTON_DP else if (expanded) 52 else 44
+        val main = if (!deckOpen) -1 else when (kind) {
+            Kind.MEDIA -> if (actions.size == 3) 1 else 0
+            Kind.TIMER, Kind.POMODORO -> actions.indexOfFirst { it.label == null }
+            else -> -1
+        }
+        actions.forEachIndexed { i, action ->
+            addView(
+                if (action.label != null) labelButton(action)
+                else if (i == main) iconButton(action, DECK_PRIMARY_DP, primary = true)
+                else iconButton(action, size),
+            )
         }
         if (expanded || deckOpen || stacked) layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(8) }
+        ).apply { topMargin = dp(if (deckOpen) 12 else 8) }
     }
 
-    private fun iconButton(action: CapsuleAction, sizeDp: Int) = ImageButton(context).apply {
+    private fun iconButton(action: CapsuleAction, sizeDp: Int, primary: Boolean = false) = ImageButton(context).apply {
         setImageDrawable(action.icon)
         contentDescription = action.description
-        setColorFilter(ink(if (onLight) INK else look?.icon ?: WHITE))
-        background = null
+        val fg = ink(if (onLight) INK else look?.icon ?: WHITE)
+        setColorFilter(if (primary) bodyColor else fg)
+        background = if (deckOpen) GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (primary) fg else wash(12, 0))
+        } else {
+            null
+        }
         // The icons are plain 24dp glyphs: keep them that size inside the touch target, not stretched to fill it.
-        setPadding(dp(sizeDp / 4), dp(sizeDp / 4), dp(sizeDp / 4), dp(sizeDp / 4))
+        val pad = sizeDp / 4
+        setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
         setOnClickListener {
             if (deckOpen) restartDeckTimer()
             action.run()
@@ -1277,12 +1470,28 @@ class CapsuleOverlay(
         private const val DEFAULT_GAP_BELOW_STATUS_BAR_DP = 8
         private const val IMAGE_WIDTH_DP = 260
         private const val DOT_DP = 6
+        private const val DOT_ACTIVE_DP = 18
         private const val SECTION_GAP_DP = 14
-        private const val TILE_COLUMNS = 5
-        private const val STAT_COLUMNS = 3
+        private const val TILE_COLUMNS = 4
+        private const val TILE_LABEL_DP = 64
+        private const val STAT_COLUMNS = 2
         private const val STAT_ICON_DP = 18
-        private const val STAT_TEXT_DP = 56
-        private const val TILE_GRID_WIDTH_DP = 272
+        private const val STAT_TEXT_DP = 100
+        private const val DECK_RADIUS_DP = 28
+        private const val DECK_PAD_DP = 16
+        private const val DECK_WIDTH_DP = 340
+        private const val DECK_HEIGHT_DP = 360
+        private const val DECK_INNER_DP = DECK_WIDTH_DP - 2 * DECK_PAD_DP
+        private const val DECK_PANEL_RADIUS_DP = 18
+        private const val DECK_ART_DP = 120
+        private const val DECK_GLYPH_DP = 20
+        private const val DECK_BADGE_DP = 40
+        private const val DECK_BAR_DP = 8
+        private const val DECK_TAB_DP = 20
+        private const val DECK_BUTTON_DP = 44
+        private const val DECK_PRIMARY_DP = 58
+        private const val RING_DP = 130
+        private const val RING_STROKE_DP = 8
         private const val TILE_GRID_TOP_DP = 18
         private const val TILE_GAP_DP = 5
         private const val TILE_GAP_V_DP = 8
@@ -1292,7 +1501,7 @@ class CapsuleOverlay(
         private const val TILE_REFRESH_MS = 350L
         private const val ROW_HEIGHT_DP = 34
         private const val ROW_NUMBER_DP = 20
-        private const val ROW_TEXT_DP = 220
+        private const val ROW_TEXT_DP = 240
         private const val SEEK_HEIGHT_DP = 28
         private const val THUMB_DP = 12
         private const val PROGRESS_TICK_MS = 250L
@@ -1312,6 +1521,24 @@ class CapsuleOverlay(
         private const val EXIT_X2 = 0.2f
         private const val FLING_VELOCITY = 800f
         private const val PROGRESS_MAX = 1000
+    }
+}
+
+/** A ring that fills clockwise from the top: [fraction] of the full circle in [fill] over a faint [track]. */
+private class RingView(context: Context, private val fraction: Float, fill: Int, track: Int, private val stroke: Float) : View(context) {
+    private val rect = RectF()
+    private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; strokeWidth = stroke; color = track
+    }
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; strokeWidth = stroke; color = fill; strokeCap = Paint.Cap.ROUND
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val pad = stroke / 2
+        rect.set(pad, pad, width - pad, height - pad)
+        canvas.drawArc(rect, 0f, 360f, false, trackPaint)
+        canvas.drawArc(rect, -90f, 360f * fraction.coerceIn(0f, 1f), false, fillPaint)
     }
 }
 

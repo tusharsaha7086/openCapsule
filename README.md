@@ -90,6 +90,23 @@ border**) has a custom colour as well as its five presets. The custom picker for
 capsule's own colour. Rows of swatches and style tiles wrap onto more lines instead of scrolling sideways, so nothing runs
 past the edge of its card.
 
+**Deck pages**
+
+Related cards share one page, so the deck has fewer pages to swipe through. A page with tabs shows one card at a time and
+you tap its name at the top: *Settings* and *Apps* (quick settings and the launcher), *Focus* and *Timers* (Pomodoro, the
+timer and the stopwatch), *Clipboard*, *Notes* and *Calendar*, and *Battery* and *Phone* (battery and phone stats). A song
+and its volume sit one above the other on one page. A page shows only the cards that are on and have something to show,
+and a card whose page-mates are off stays on a page of its own. The switches and order under Dynamic cards still apply to
+each card; a page sits where its first card is in that order.
+
+**Deck look**
+
+The expanded deck is a rounder shell (28 dp unless the shape is Square) with the same layout on every card: a round icon, the
+title and a small monospace line under it, left aligned. Quick settings tiles that are on get a faint outline, bars have
+round ends, and the page dots show the card you are on as a longer pill. Buttons sit in round washes; the main one (play or
+pause on a song, pause or resume on a timer) is a larger filled circle. A running timer or focus session draws a progress
+ring with the time inside it, and a song shows its cover as a wide panel above the title.
+
 **Deck colors**
 
 Under **Customize, Expanded view, Deck colors**, *Own colors for the deck* gives the expanded deck its own background and

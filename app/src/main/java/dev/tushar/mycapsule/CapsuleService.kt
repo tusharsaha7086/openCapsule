@@ -51,8 +51,7 @@ class CapsuleService : NotificationListenerService() {
                 val order = prefs.cardOrder
                 val cards = sources.mapNotNull { it.card(this) }
                     .filter { card -> DeckCard.of(card.kind)?.let(prefs::cardEnabled) ?: true }
-                DeckCard.mergeClock(cards)
-                    .sortedBy { card -> DeckCard.of(card.kind)?.let(order::indexOf) ?: order.size }
+                DeckCard.group(cards, order)
             },
             onGesture = ::perform,
         )

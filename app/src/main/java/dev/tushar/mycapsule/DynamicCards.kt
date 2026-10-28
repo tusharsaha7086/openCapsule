@@ -1,5 +1,20 @@
 package dev.tushar.mycapsule
 
+/** Which cards share one page of the deck, and whether the page shows them as tabs ([tabbed]) or one above the other. */
+enum class DeckPage(val cards: List<DeckCard>, val tabbed: Boolean = true) {
+    PLAYER(listOf(DeckCard.MEDIA, DeckCard.VOLUME), tabbed = false),
+    CONTROL(listOf(DeckCard.CONTROLS, DeckCard.LAUNCHER)),
+    FOCUS(listOf(DeckCard.POMODORO, DeckCard.CLOCK)),
+    NOTES(listOf(DeckCard.CLIPBOARD, DeckCard.NOTES, DeckCard.CALENDAR)),
+    SYSTEM(listOf(DeckCard.BATTERY, DeckCard.STATS)),
+    BARCODE(listOf(DeckCard.BARCODE)),
+    ;
+
+    companion object {
+        fun of(card: DeckCard) = entries.first { card in it.cards }
+    }
+}
+
 /**
  * The cards in the expanded view (the deck) that can be switched on or off. A card is shown only while it has something
  * to show: the player when there is a song, the volume while music plays, the clock while a timer or stopwatch runs, the
@@ -30,6 +45,51 @@ enum class DeckCard(val kind: Kind, val label: String, val hint: String, val ico
             Kind.TIMER, Kind.STOPWATCH -> CLOCK
             Kind.FLASHLIGHT, Kind.SYSTEM -> CONTROLS
             else -> entries.firstOrNull { it.kind == kind }
+        }
+
+        /** The deck page a kind of event is on: related cards share one page, so the deck has fewer pages. */
+        fun pageOf(kind: Kind): Any = of(kind)?.let { DeckPage.of(it) } ?: kind
+
+        /** The short name of a card on its page's tab bar. */
+        private fun tabName(kind: Kind) = when (kind) {
+            Kind.TIMER, Kind.STOPWATCH -> "Timers"
+            Kind.FLASHLIGHT, Kind.SYSTEM -> "Settings"
+            Kind.LAUNCHER -> "Apps"
+            Kind.POMODORO -> "Focus"
+            Kind.STATS -> "Phone"
+            else -> kind.label
+        }
+
+        /**
+         * Gathers the cards that belong together onto one page, as the reference decks do: quick settings with the
+         * launcher, focus with the timers, clipboard with notes and the calendar, battery with phone stats, and a song
+         * with its volume. Pages with tabs show one card at a time; the song and its volume sit one above the other.
+         * A card whose page-mates are not showing stays as it is. Pages come in the order of their first card.
+         */
+        fun group(cards: List<CapsuleEvent>, order: List<DeckCard>): List<CapsuleEvent> {
+            fun rank(card: CapsuleEvent) = of(card.kind)?.let(order::indexOf) ?: order.size
+            val pages = mergeClock(cards).groupBy { pageOf(it.kind) }.values
+            return pages.map { members ->
+                val page = of(members.first().kind)?.let { DeckPage.of(it) }
+                // Within a page the cards keep the page's own order (settings before apps), whatever the saved order is.
+                val sorted = members.sortedBy { card -> page?.cards?.indexOf(of(card.kind)) ?: 0 }
+                if (sorted.size == 1) return@map sorted.first()
+                val tabbed = page?.tabbed == true
+                sorted.first().copy(
+                    actions = emptyList(),
+                    expandedActions = emptyList(),
+                    progress = null,
+                    image = null,
+                    tiles = emptyList(),
+                    rows = emptyList(),
+                    stats = emptyList(),
+                    live = sorted.any { it.live },
+                    playback = sorted.firstNotNullOfOrNull { it.playback },
+                    refreshMs = sorted.mapNotNull { it.refreshMs }.minOrNull(),
+                    sections = sorted,
+                    tabs = if (tabbed) sorted.map { tabName(it.kind) } else emptyList(),
+                )
+            }.sortedBy { page -> (page.sections.ifEmpty { listOf(page) }).minOf(::rank) }
         }
 
         /**

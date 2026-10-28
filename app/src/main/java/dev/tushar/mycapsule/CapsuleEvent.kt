@@ -118,6 +118,8 @@ data class CapsuleEvent(
     val live: Boolean = false,
     /** A deck card that holds several cards one above the other (the timer and the stopwatch); it draws these, not itself. */
     val sections: List<CapsuleEvent> = emptyList(),
+    /** Names for [sections], one each, when they are drawn as tabs with one section showing at a time; empty stacks them instead. */
+    val tabs: List<String> = emptyList(),
     /** Switches drawn as a grid under the header, in the deck only. */
     val tiles: List<Tile> = emptyList(),
     /** Lines drawn as a list under the header, in the deck only. */
